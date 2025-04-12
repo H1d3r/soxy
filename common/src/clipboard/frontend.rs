@@ -5,6 +5,24 @@ use std::{
     net, thread,
 };
 
+// https://patorjk.com/software/taag/#p=display&h=0&v=0&f=Ogre&t=clipboard%0A
+const LOGO: &str = r#"
+       _  _         _                              _
+  ___ | |(_) _ __  | |__    ___    __ _  _ __   __| |
+ / __|| || || '_ \ | '_ \  / _ \  / _` || '__| / _` |
+| (__ | || || |_) || |_) || (_) || (_| || |   | (_| |
+ \___||_||_|| .__/ |_.__/  \___/  \__,_||_|    \__,_|
+            |_|"#;
+
+const HELP: &str = r#"
+Available commands:
+- "read" or "get" to get remote clipboard content;
+- "write XXX" or "put XXX" to set remote clipboard content to XXX;
+- "exit" or "quit" to exit this intrerface.
+"#;
+
+const PROMPT: &str = "clipboard> ";
+
 pub(crate) fn tcp_handler<'a>(
     _server: &service::TcpFrontendServer,
     _scope: &'a thread::Scope<'a, '_>,
@@ -16,11 +34,17 @@ pub(crate) fn tcp_handler<'a>(
 
     let mut client_write = io::BufWriter::new(stream);
 
+    client_write.write_fmt(format_args!("{}\n{}\n{}\n", service::LOGO, LOGO, HELP))?;
+    client_write.flush()?;
+
     let mut rdp = channel.connect(&super::SERVICE)?;
 
     let mut line = String::new();
 
     loop {
+        client_write.write(PROMPT.as_bytes())?;
+        client_write.flush()?;
+
         let _ = client_read.read_line(&mut line)?;
 
         let cline = line
@@ -44,6 +68,7 @@ pub(crate) fn tcp_handler<'a>(
         crate::trace!("ARGS = {args:?}");
 
         match command.as_str() {
+            "" => (),
             "READ" | "GET" => {
                 protocol::Command::Read.send(&mut rdp)?;
                 match protocol::Response::receive(&mut rdp)? {

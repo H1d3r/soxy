@@ -115,21 +115,28 @@ impl Channel {
                 Ok(service) => {
                     crate::debug!("new {service} client {client_id:x}");
 
-                    let (from_rdp_send, from_rdp_recv) =
-                        crossbeam_channel::bounded(CLIENT_CHUNK_BUFFER_SIZE);
-                    ve.insert(from_rdp_send);
+                    match &service.backend {
+                        None => {
+                            crate::warn!("no backend to handle client {client_id:x}");
+                        }
+                        Some(backend) => {
+                            let (from_rdp_send, from_rdp_recv) =
+                                crossbeam_channel::bounded(CLIENT_CHUNK_BUFFER_SIZE);
+                            ve.insert(from_rdp_send);
 
-                    let stream = RdpStream::new(self, service, client_id, from_rdp_recv);
-                    stream.accept()?;
+                            let stream = RdpStream::new(self, service, client_id, from_rdp_recv);
+                            stream.accept()?;
 
-                    thread::Builder::new()
-                        .name(format!("{} {service} {client_id:x}", Kind::Backend))
-                        .spawn_scoped(scope, move || {
-                            if let Err(e) = (service.backend.handler)(stream) {
-                                crate::debug!("error: {e}");
-                            }
-                        })
-                        .unwrap();
+                            thread::Builder::new()
+                                .name(format!("{} {service} {client_id:x}", Kind::Backend))
+                                .spawn_scoped(scope, move || {
+                                    if let Err(e) = (backend.handler)(stream) {
+                                        crate::debug!("error: {e}");
+                                    }
+                                })
+                                .unwrap();
+                        }
+                    }
                 }
             },
         }
@@ -693,25 +700,23 @@ impl TcpFrontendServer {
     }
 
     pub fn start<'a>(&'a self, channel: &'a Channel) -> Result<(), io::Error> {
-        thread::scope(|scope| loop {
-            let (client, client_addr) = self.server.accept()?;
+        match self.service.frontend() {
+            None => Ok(()),
+            Some(Frontend::Tcp { handler, .. }) => thread::scope(|scope| loop {
+                let (client, client_addr) = self.server.accept()?;
 
-            crate::debug!("new client {client_addr}");
+                crate::debug!("new client {client_addr}");
 
-            thread::Builder::new()
-                .name(format!("{} {} {client_addr}", Kind::Frontend, self.service))
-                .spawn_scoped(scope, move || match self.service.tcp_frontend.as_ref() {
-                    None => {
-                        crate::error!("no TCP frontend for {}", self.service);
-                    }
-                    Some(frontend) => {
-                        if let Err(e) = (frontend.handler)(&self, scope, client, channel) {
+                thread::Builder::new()
+                    .name(format!("{} {} {client_addr}", Kind::Frontend, self.service))
+                    .spawn_scoped(scope, move || {
+                        if let Err(e) = (handler)(&self, scope, client, channel) {
                             crate::debug!("error: {e}");
                         }
-                    }
-                })
-                .unwrap();
-        })
+                    })
+                    .unwrap();
+            }),
+        }
     }
 }
 
@@ -727,16 +732,11 @@ type FrontendHandler<S, C> = for<'a> fn(
 type TcpFrontendHandler = FrontendHandler<TcpFrontendServer, net::TcpStream>;
 
 #[cfg(feature = "frontend")]
-pub struct TcpFrontend {
-    pub(crate) default_port: u16,
-    pub(crate) handler: TcpFrontendHandler,
-}
-
-#[cfg(feature = "frontend")]
-impl TcpFrontend {
-    pub const fn default_port(&self) -> u16 {
-        self.default_port
-    }
+pub enum Frontend {
+    Tcp {
+        default_port: u16,
+        handler: TcpFrontendHandler,
+    },
 }
 
 #[cfg(feature = "backend")]
@@ -750,9 +750,9 @@ pub(crate) struct Backend {
 pub struct Service {
     pub(crate) name: &'static str,
     #[cfg(feature = "frontend")]
-    pub(crate) tcp_frontend: Option<TcpFrontend>,
+    pub(crate) frontend: Option<Frontend>,
     #[cfg(feature = "backend")]
-    pub(crate) backend: Backend,
+    pub(crate) backend: Option<Backend>,
 }
 
 impl Service {
@@ -761,8 +761,8 @@ impl Service {
     }
 
     #[cfg(feature = "frontend")]
-    pub fn tcp_frontend(&self) -> Option<&TcpFrontend> {
-        self.tcp_frontend.as_ref()
+    pub fn frontend(&self) -> Option<&Frontend> {
+        self.frontend.as_ref()
     }
 }
 
@@ -781,6 +781,15 @@ fn lookup_bytes(bytes: &[u8]) -> Result<&'static Service, String> {
 pub fn lookup(name: &str) -> Option<&'static Service> {
     SERVICES.iter().find(|s| s.name == name).map(|s| *s)
 }
+
+// https://patorjk.com/software/taag/#p=display&h=0&v=0&f=Ogre&t=soxy%0A
+#[cfg(feature = "frontend")]
+pub(crate) const LOGO: &str = r#"
+ ___   ___  __  __ _   _
+/ __| / _ \ \ \/ /| | | |
+\__ \| (_) | >  < | |_| |
+|___/ \___/ /_/\_\ \__, |
+                   |___/"#;
 
 pub static SERVICES: [&Service; 6] = [
     &clipboard::SERVICE,

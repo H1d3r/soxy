@@ -8,12 +8,12 @@ mod frontend;
 pub(crate) static SERVICE: service::Service = service::Service {
     name: "command",
     #[cfg(feature = "frontend")]
-    tcp_frontend: Some(service::TcpFrontend {
+    frontend: Some(service::Frontend::Tcp {
         default_port: 3031,
         handler: frontend::tcp_frontend_handler,
     }),
     #[cfg(feature = "backend")]
-    backend: service::Backend {
+    backend: Some(service::Backend {
         handler: backend::backend_handler,
-    },
+    }),
 };

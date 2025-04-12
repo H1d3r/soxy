@@ -174,20 +174,18 @@ pub fn init(
             let port = service.port;
             let service = service::lookup(service.name.as_str())
                 .ok_or(Error::Config(config::Error::UnknownService(service.name)))?;
-            let port = port
-                .or(service
-                    .tcp_frontend()
-                    .map(service::TcpFrontend::default_port))
-                .ok_or(Error::Config(config::Error::UnknownService(
-                    service.name().to_string(),
-                )))?;
+            match service.frontend() {
+                None => Ok::<_, Error>(servers),
+                Some(service::Frontend::Tcp { default_port, .. }) => {
+                    let port = port.unwrap_or(*default_port);
+                    let sockaddr = net::SocketAddr::new(ip, port);
+                    let server = common::service::TcpFrontendServer::bind(service, sockaddr)?;
 
-            let sockaddr = net::SocketAddr::new(ip, port);
-            let server = common::service::TcpFrontendServer::bind(service, sockaddr)?;
+                    servers.push(server);
 
-            servers.push(server);
-
-            Ok::<_, Error>(servers)
+                    Ok(servers)
+                }
+            }
         },
     )?;
 

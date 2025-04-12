@@ -99,7 +99,7 @@ fn default_services() -> Vec<Service> {
             name: s.name().to_string(),
             enabled: true,
             ip: None,
-            port: s.tcp_frontend().map(service::TcpFrontend::default_port),
+            port: None,
         })
         .collect()
 }

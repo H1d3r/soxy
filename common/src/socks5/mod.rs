@@ -9,12 +9,12 @@ mod protocol;
 pub(crate) static SERVICE: service::Service = service::Service {
     name: "socks5",
     #[cfg(feature = "frontend")]
-    tcp_frontend: Some(service::TcpFrontend {
+    frontend: Some(service::Frontend::Tcp {
         default_port: 1080,
         handler: frontend::tcp_handler,
     }),
     #[cfg(feature = "backend")]
-    backend: service::Backend {
+    backend: Some(service::Backend {
         handler: backend::handler,
-    },
+    }),
 };

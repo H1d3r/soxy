@@ -5,6 +5,23 @@ use std::{
     net, thread,
 };
 
+// https://patorjk.com/software/taag/#p=display&h=0&v=0&f=Ogre&t=stage0%0A
+const LOGO: &str = r#"
+      _                         ___
+ ___ | |_   __ _   __ _   ___  / _ \
+/ __|| __| / _` | / _` | / _ \| | | |
+\__ \| |_ | (_| || (_| ||  __/| |_| |
+|___/ \__| \__,_| \__, | \___| \___/
+                  |___/"#;
+
+const HELP: &str = r#"
+Available commands:
+- "cat FILE" or "push FILE" or "put FILE" or "send FILE" or "upload FILE" to uplaod the content of FILE;
+- "exit" or "quit" to exit this intrerface.
+"#;
+
+const PROMPT: &str = "stage0> ";
+
 pub(crate) fn tcp_handler(
     _server: &service::TcpFrontendServer,
     _scope: &thread::Scope,
@@ -16,9 +33,15 @@ pub(crate) fn tcp_handler(
 
     let mut client_write = io::BufWriter::new(stream);
 
+    client_write.write_fmt(format_args!("{}\n{}\n{}\n", service::LOGO, LOGO, HELP))?;
+    client_write.flush()?;
+
     let mut rdp = channel.connect(&super::SERVICE)?;
 
     let mut line = String::new();
+
+    client_write.write(PROMPT.as_bytes())?;
+    client_write.flush()?;
 
     let _ = client_read.read_line(&mut line)?;
 

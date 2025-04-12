@@ -5,6 +5,41 @@ use std::{
     net, thread, time,
 };
 
+// https://patorjk.com/software/taag/#p=display&h=0&v=0&f=Ogre&t=input%0A
+const LOGO: &str = r#"
+ _                       _
+(_) _ __   _ __   _   _ | |_
+| || '_ \ | '_ \ | | | || __|
+| || | | || |_) || |_| || |_
+|_||_| |_|| .__/  \__,_| \__|
+          |_|"#;
+
+const HELP: &str = r#"
+Available commands:
+- "delay <delay>" where "<delay>" is a integer representing an amount
+  of time in milliseconds: sets the default delay between two input
+  events;
+- "pause <delay>" where "<delay>" is a integer representing an amount
+  of time in milliseconds: waits the given amount of time before
+  sending the next input event;
+- "keydown <key>" where "<key>" in a supported keyword associated to a
+  keyboard key (see "common/src/input/frontend.rs" for available
+  keywords): presses the given keyboard key until the corresponding
+  "keyup <key>" command is emitted;
+- "key <key>" where "<key>" in a supported keyword associated to a
+  keyboard key (see "common/src/input/frontend.rs" for available
+  keywords): emulates the given key stroke (i.e. pressed then released);
+- "write <input>" (resp. "writeln <input>") where "<input>" a
+  newline-terminated string: emulates the typing of the given text
+  input on the keyboard (resp. including a carriage return at the
+  end);
+- "cat <file path>" where "<file path>" is a path to a "text" file:
+  emulates the typing of the content of the given file on the keyboard;
+- "exit" or "quit" to exit this intrerface.
+"#;
+
+const PROMPT: &str = "input> ";
+
 fn key_lookup(s: &str) -> Option<input::Key> {
     match s.to_uppercase().as_str() {
         "ALT" | "ALTL" | "ALT_L" | "ALT_LEFT" => Some(input::Key::AltLeft),
@@ -53,11 +88,17 @@ pub(crate) fn tcp_handler(
 
     let mut client_write = io::BufWriter::new(stream);
 
+    client_write.write_fmt(format_args!("{}\n{}\n{}\n", service::LOGO, LOGO, HELP))?;
+    client_write.flush()?;
+
     channel.reset_client()?;
 
     let mut line = String::new();
 
     loop {
+        client_write.write(PROMPT.as_bytes())?;
+        client_write.flush()?;
+
         let _ = client_read.read_line(&mut line)?;
 
         let cline = if line.ends_with('\n') {

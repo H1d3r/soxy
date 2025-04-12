@@ -1,22 +1,18 @@
 use crate::service;
 use std::{fmt, time};
 
-#[cfg(feature = "backend")]
-mod backend;
 #[cfg(feature = "frontend")]
 mod frontend;
 
 pub(crate) static SERVICE: service::Service = service::Service {
     name: "input",
     #[cfg(feature = "frontend")]
-    tcp_frontend: Some(service::TcpFrontend {
+    frontend: Some(service::Frontend::Tcp {
         default_port: 1081,
         handler: frontend::tcp_handler,
     }),
     #[cfg(feature = "backend")]
-    backend: service::Backend {
-        handler: backend::handler,
-    },
+    backend: None,
 };
 
 pub enum Error {

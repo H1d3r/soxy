@@ -14,12 +14,12 @@ Windows instance managed by one of the supported VDIs, while the frontend
 bridges access to backend functions by exposing VDI-side resources locally using
 a common protocol. At the time of writing, soxy provides:
 
-- a telnet-like interface to inject keystrokes ("input");
+- a telnet interface to inject keystrokes ("input");
 - a bootstrap module using a PowerShell backend script ("stage0");
 - a (basic) FTP server to access the remote machine's filesystem;
-- a telnet-like interface to spawn and interact with a console/shell executed on
+- a telnet interface to spawn and interact with a console/shell executed on
   the remote machine;
-- a telnet-like interface to read/write the clipboard of the remote
+- a telnet interface to read/write the clipboard of the remote
   machine;
 - a SOCKS5 proxy which permits to open connections on client's side as if it was
   opened in the remote machine.
@@ -400,8 +400,8 @@ you can start using soxy services from your client machine
 
 #### Remote Clipboard
 
-Connect to `localhost:3032` on your client machine with a telnet-like command
-such as `nc`, and use the available commands:
+Connect to `localhost:3032` on your client machine with a telnet command,
+and use the available commands:
 
 - `write xxxx` or `put xxxx`: sets the remote clipboard to the value `xxxx`;
 - `read` or `get`: retrieves the content of the remote clipboard;
@@ -409,8 +409,8 @@ such as `nc`, and use the available commands:
 
 #### Remote Console/Shell
 
-Connect to `localhost:3031` on your client machine with a telnet-like command
-such as `nc`, and use the available commands.
+Connect to `localhost:3031` on your client machine with a telnet command,
+and use the available commands.
 
 #### Remote Filesystem
 
@@ -420,8 +420,8 @@ user.
 
 #### Input
 
-Connect to `localhost:1081` on your client machine with a telnet-like
-command such as `nc`, and use one of the available commands below to
+Connect to `localhost:1081` on your client machine with a telnet
+command, and use one of the available commands below to
 send input events. This service does not require a running backend,
 only a loaded frontend.
 
@@ -463,8 +463,8 @@ Execute the script `stage0.ps1` (which can be found in `tools/stage0`) on the re
 powershell.exe -ExecutionPolicy Bypass -file stage0.ps1
 ```
 
-Connect to `localhost:1082` on your client machine with a telnet-like
-command such as `nc`, and use the available commands:
+Connect to `localhost:1082` on your client machine with a telnet command,
+and use the available commands:
 
 - `send <file path>`: sends the content of the file at the provided
   path, it will be stored in a file named `favicon.iso` in the

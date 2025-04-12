@@ -9,12 +9,12 @@ mod protocol;
 pub(crate) static SERVICE: service::Service = service::Service {
     name: "clipboard",
     #[cfg(feature = "frontend")]
-    tcp_frontend: Some(service::TcpFrontend {
+    frontend: Some(service::Frontend::Tcp {
         default_port: 3032,
         handler: frontend::tcp_handler,
     }),
     #[cfg(feature = "backend")]
-    backend: service::Backend {
+    backend: Some(service::Backend {
         handler: backend::handler,
-    },
+    }),
 };

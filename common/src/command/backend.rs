@@ -6,11 +6,11 @@ pub(crate) fn backend_handler(rdp_stream: service::RdpStream<'_>) -> Result<(), 
 
     #[cfg(target_os = "windows")]
     let cmd = "cmd.exe";
-    #[cfg(not(target_os = "windows"))]
-    let cmd = "sh";
-
     #[cfg(target_os = "windows")]
     let args: [String; 0] = [];
+
+    #[cfg(not(target_os = "windows"))]
+    let cmd = "sh";
     #[cfg(not(target_os = "windows"))]
     let args = ["-i"];
 
