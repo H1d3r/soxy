@@ -210,7 +210,7 @@ type VirtualChannelQuery = unsafe extern "system" fn(
     wtsvirtualclass: ws::Win32::System::RemoteDesktop::WTS_VIRTUAL_CLASS,
     ppbuffer: *mut *mut os::raw::c_void,
     pbytesreturned: *mut os::raw::c_ulong,
-) -> ws::Win32::Foundation::BOOL;
+) -> ws::core::BOOL;
 
 pub enum Svc<'a> {
     High {

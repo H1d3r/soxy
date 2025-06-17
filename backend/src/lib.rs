@@ -299,7 +299,7 @@ pub unsafe extern "system" fn DllMain(
     dll_module: ws::Win32::Foundation::HINSTANCE,
     call_reason: u32,
     _reserverd: *mut ffi::c_void,
-) -> ws::Win32::Foundation::BOOL {
+) -> ws::core::BOOL {
     match call_reason {
         ws::Win32::System::SystemServices::DLL_PROCESS_ATTACH => unsafe {
             ws::Win32::System::LibraryLoader::DisableThreadLibraryCalls(dll_module);
