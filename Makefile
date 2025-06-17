@@ -1,18 +1,20 @@
+SERVICES ?= clipboard command ftp socks5 stage0
+
 TARGETS_FRONTEND ?= i686-pc-windows-gnu x86_64-pc-windows-gnu i686-unknown-linux-gnu x86_64-unknown-linux-gnu
 TARGETS_BACKEND ?= i686-pc-windows-gnu x86_64-pc-windows-gnu i686-unknown-linux-gnu x86_64-unknown-linux-gnu
 TARGETS_STANDALONE ?= i686-pc-windows-gnu x86_64-pc-windows-gnu i686-unknown-linux-gnu x86_64-unknown-linux-gnu
 TARGETS_WIN7_BACKEND ?= x86_64-win7-windows-gnu
 
-RELEASE_DIR:=release
-DEBUG_DIR:=debug
+RELEASE_DIR := release
+DEBUG_DIR := debug
 
-BACKEND_RELEASE_BASE_RUST_FLAGS:=--remap-path-prefix ${HOME}=/foo -Zlocation-detail=none
+BACKEND_RELEASE_BASE_RUST_FLAGS := --remap-path-prefix ${HOME}=/foo -Zlocation-detail=none
 
-BACKEND_RELEASE_LIB_RUST_FLAGS:=$(BACKEND_RELEASE_BASE_RUST_FLAGS)
+BACKEND_RELEASE_LIB_RUST_FLAGS := $(BACKEND_RELEASE_BASE_RUST_FLAGS)
 
-BACKEND_RELEASE_BIN_RUST_FLAGS:=$(BACKEND_RELEASE_BASE_RUST_FLAGS)
+BACKEND_RELEASE_BIN_RUST_FLAGS := $(BACKEND_RELEASE_BASE_RUST_FLAGS)
 
-BACKEND_BUILD_FLAGS:=-Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort
+BACKEND_BUILD_FLAGS := -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort
 
 TOOLCHAIN_FRONTEND_DEBUG ?= stable
 TOOLCHAIN_FRONTEND_RELEASE ?= stable
@@ -24,15 +26,22 @@ TOOLCHAIN_WIN7_TAG ?= 1.87.0
 TOOLCHAIN_WIN7_BACKEND ?= win7-$(TOOLCHAIN_WIN7_TAG)
 TOOLCHAIN_WIN7_RUST_DIR = win7-rustc
 
-SHELL:=bash
+SHELL := bash
+
+#############
+
+.PHONY: default
+default: setup release
+
+TOOLCHAINS := $(sort $(TOOLCHAIN_FRONTEND_DEBUG) $(TOOLCHAIN_FRONTEND_RELEASE) $(TOOLCHAIN_BACKEND_DEBUG) $(TOOLCHAIN_BACKEND_RELEASE) $(TOOLCHAIN_STANDALONE_DEBUG) $(TOOLCHAIN_STANDALONE_RELEASE))
+TARGETS := $(sort $(TARGETS_FRONTEND) $(TARGETS_BACKEND) $(TARGETS_STANDALONE))
 
 .PHONY: setup
 setup:
-	echo $(TOOLCHAIN_FRONTEND_DEBUG) $(TOOLCHAIN_FRONTEND_RELEASE) $(TOOLCHAIN_BACKEND_DEBUG) $(TOOLCHAIN_BACKEND_RELEASE) $(TOOLCHAIN_STANDALONE_DEBUG) $(TOOLCHAIN_STANDALONE_RELEASE) | tr ' ' '\n' | sort -u | while read toolchain ; do \
+	@for toolchain in $(TOOLCHAINS) ; do \
+	        echo ; echo "# Installing toolchain $$toolchain" ; echo ; \
 		rustup toolchain add $$toolchain || exit 1 ; \
-	done
-	@echo $(TARGETS_FRONTEND) $(TARGETS_BACKEND) $(TARGETS_STANDALONE) | tr ' ' '\n' | sort -u | while read target ; do \
-		echo $(TOOLCHAIN_FRONTEND_DEBUG) $(TOOLCHAIN_FRONTEND_RELEASE) $(TOOLCHAIN_BACKEND_DEBUG) $(TOOLCHAIN_BACKEND_RELEASE) $(TOOLCHAIN_STANDALONE_DEBUG) $(TOOLCHAIN_STANDALONE_RELEASE) | tr ' ' '\n' | sort -u | while read toolchain ; do \
+		for target in $(TARGETS) ; do \
 			echo ; echo "# Installing component $$target for $$toolchain" ; echo ; \
 			rustup target add --toolchain $$toolchain $$target || exit 1 ; \
 			if [[ ! "$$target" =~ "llvm" ]] ; then \
@@ -109,47 +118,52 @@ win7: build-win7
 
 .PHONY: distclean
 distclean: clean
-	rm -rf ${RELEASE_DIR} ${DEBUG_DIR}
-	$(MAKE) -C $(TOOLCHAIN_WIN7_RUST_DIR) $@
+	@rm -Rf ${RELEASE_DIR} ${DEBUG_DIR}
+	@$(MAKE) -C $(TOOLCHAIN_WIN7_RUST_DIR) $@
 
 #############
+
+FEATURES_SERVICES := $(addprefix service-,$(SERVICES))
+FEATURES_SERVICES := $(strip $(FEATURES_SERVICES))
+FEATURES_SERVICES := $(shell echo "$(FEATURES_SERVICES)" | sed 's/ /,/g')
+FEATURES_SERVICES := "$(FEATURES_SERVICES)"
 
 .PHONY: build-release
 build-release:
 	@for t in $(TARGETS_FRONTEND) ; do \
-		echo ; echo "# Building release frontend for $$t with $(TOOLCHAIN_FRONTEND_RELEASE)" ; echo ; \
-		(cd frontend && cargo +$(TOOLCHAIN_FRONTEND_RELEASE) build --release --features log --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Building release frontend ($(SERVICES)) for $$t with $(TOOLCHAIN_FRONTEND_RELEASE)" ; echo ; \
+		(cd frontend && cargo +$(TOOLCHAIN_FRONTEND_RELEASE) build --release --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_BACKEND) ; do \
-		echo ; echo "# Building release backend library for $$t with $(TOOLCHAIN_BACKEND_RELEASE)" ; echo ; \
-		(cd backend && RUSTFLAGS="$(BACKEND_RELEASE_LIB_RUST_FLAGS)" cargo +$(TOOLCHAIN_BACKEND_RELEASE) build --lib --release --target $$t $(BACKEND_BUILD_FLAGS) && cd ..) || exit 1 ; \
-		echo ; echo "# Building release backend binary for $$t with $(TOOLCHAIN_BACKEND_RELEASE)" ; echo ; \
+		echo ; echo "# Building release backend library ($(SERVICES)) for $$t with $(TOOLCHAIN_BACKEND_RELEASE)" ; echo ; \
+		(cd backend && RUSTFLAGS="$(BACKEND_RELEASE_LIB_RUST_FLAGS)" cargo +$(TOOLCHAIN_BACKEND_RELEASE) build --lib --release --features $(FEATURES_SERVICES) --target $$t $(BACKEND_BUILD_FLAGS) && cd ..) || exit 1 ; \
+		echo ; echo "# Building release backend binary ($(SERVICES)) for $$t with $(TOOLCHAIN_BACKEND_RELEASE)" ; echo ; \
 		FLAGS="$(BACKEND_RELEASE_BIN_RUST_FLAGS)" ; \
 		if echo $$t | grep -q windows ; then \
 			FLAGS="$(BACKEND_RELEASE_BIN_RUST_FLAGS)" ; \
                 fi ; \
-		(cd backend && RUSTFLAGS="$$FLAGS" cargo +$(TOOLCHAIN_BACKEND_RELEASE) build --bins --release --target $$t $(BACKEND_BUILD_FLAGS) && cd ..) ; \
+		(cd backend && RUSTFLAGS="$$FLAGS" cargo +$(TOOLCHAIN_BACKEND_RELEASE) build --bins --release --features $(FEATURES_SERVICES) --target $$t $(BACKEND_BUILD_FLAGS) && cd ..) ; \
 	done
 	@for t in $(TARGETS_STANDALONE) ; do \
-		echo ; echo "# Building release standalone for $$t with $(TOOLCHAIN_STANDALONE_RELEASE)" ; echo ; \
-		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_RELEASE) build --release --features log --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Building release standalone ($(SERVICES)) for $$t with $(TOOLCHAIN_STANDALONE_RELEASE)" ; echo ; \
+		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_RELEASE) build --release --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 
 .PHONY: build-debug
 build-debug:
 	@for t in $(TARGETS_FRONTEND) ; do \
-		echo ; echo "# Building debug frontend for $$t with $(TOOLCHAIN_FRONTEND_DEBUG)" ; echo ; \
-		(cd frontend && cargo +$(TOOLCHAIN_FRONTEND_DEBUG) build --features log --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Building debug frontend ($(SERVICES)) for $$t with $(TOOLCHAIN_FRONTEND_DEBUG)" ; echo ; \
+		(cd frontend && cargo +$(TOOLCHAIN_FRONTEND_DEBUG) build --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_BACKEND) ; do \
-		echo ; echo "# Building debug backend library for $$t with $(TOOLCHAIN_BACKEND_DEBUG)" ; echo ; \
-		(cd backend && cargo +$(TOOLCHAIN_BACKEND_DEBUG) build --lib --features log --target $$t && cd ..) || exit 1 ; \
-		echo ; echo "# Building debug backend binary for $$t with $(TOOLCHAIN_BACKEND_DEBUG)" ; echo ; \
-		(cd backend && cargo +$(TOOLCHAIN_BACKEND_DEBUG) build --bins --features log --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Building debug backend library ($(SERVICES)) for $$t with $(TOOLCHAIN_BACKEND_DEBUG)" ; echo ; \
+		(cd backend && cargo +$(TOOLCHAIN_BACKEND_DEBUG) build --lib --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Building debug backend binary ($(SERVICES)) for $$t with $(TOOLCHAIN_BACKEND_DEBUG)" ; echo ; \
+		(cd backend && cargo +$(TOOLCHAIN_BACKEND_DEBUG) build --bins --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_STANDALONE) ; do \
-		echo ; echo "# Building debug standalone for $$t with $(TOOLCHAIN_STANDALONE_DEBUG)" ; echo ; \
-		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_DEBUG) build --features log --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Building debug standalone ($(SERVICES)) for $$t with $(TOOLCHAIN_STANDALONE_DEBUG)" ; echo ; \
+		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_DEBUG) build --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 
 .PHONY: build-win7
@@ -160,15 +174,15 @@ build-win7:
 		TOOLCHAIN=$(TOOLCHAIN_WIN7_BACKEND) \
 		TARGETS="$(TARGETS_WIN7_BACKEND)"
 	@for t in $(TARGETS_WIN7_BACKEND) ; do  \
-		echo ; echo "# Building release backend library for $$t with $(TOOLCHAIN_WIN7_BACKEND)" ; echo ; \
+		echo ; echo "# Building release backend library ($(SERVICES)) for $$t with $(TOOLCHAIN_WIN7_BACKEND)" ; echo ; \
 		(cd backend && \
 		 RUSTFLAGS="$(BACKEND_RELEASE_LIB_RUST_FLAGS)" \
-		 cargo +$(TOOLCHAIN_WIN7_BACKEND) build --lib --release --target $$t \
+		 cargo +$(TOOLCHAIN_WIN7_BACKEND) build --lib --release --features $(FEATURES_SERVICES) --target $$t \
 		) || exit 1 ; \
-		echo ; echo "# Building release backend binary for $$t with $(TOOLCHAIN_WIN7_BACKEND)" ; echo ; \
+		echo ; echo "# Building release backend binary ($(SERVICES)) for $$t with $(TOOLCHAIN_WIN7_BACKEND)" ; echo ; \
 		(cd backend && \
 		 RUSTFLAGS="$(BACKEND_RELEASE_BIN_RUST_FLAGS)" \
-		 cargo +$(TOOLCHAIN_WIN7_BACKEND) build --bins --release --target $$t \
+		 cargo +$(TOOLCHAIN_WIN7_BACKEND) build --bins --release --features $(FEATURES_SERVICES) --target $$t \
 		) ; \
 	done
 
@@ -178,15 +192,15 @@ build-win7:
 clippy:
 	@for t in $(TARGETS_FRONTEND) ; do \
 		echo ; echo "# Clippy on frontend for $$t with $(TOOLCHAIN_FRONTEND_DEBUG)" ; echo ; \
-		(cd frontend && cargo +$(TOOLCHAIN_FRONTEND_DEBUG) $@ --target $$t && cd ..) || exit 1 ; \
+		(cd frontend && cargo +$(TOOLCHAIN_FRONTEND_DEBUG) $@ --features $(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_BACKEND) ; do \
 		echo ; echo "# Clippy on backend for $$t with $(TOOLCHAIN_BACKEND_DEBUG)" ; echo ; \
-		(cd backend && cargo +$(TOOLCHAIN_BACKEND_DEBUG) $@ --target $$t && cd ..) || exit 1 ; \
+		(cd backend && cargo +$(TOOLCHAIN_BACKEND_DEBUG) $@ --features $(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_STANDALONE) ; do \
 		echo ; echo "# Clippy on standalone for $$t with $(TOOLCHAIN_STANDALONE_DEBUG)" ; echo ; \
-		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_DEBUG) $@ --target $$t && cd ..) || exit 1 ; \
+		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_DEBUG) $@ --features $(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 
 .PHONY: cargo-fmt

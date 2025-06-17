@@ -27,7 +27,7 @@ SHELL := bash
 
 .PHONY: build
 build: setup
-	rustup toolchain list | grep -q $(TOOLCHAIN) || {             \
+	@rustup toolchain list | grep -q $(TOOLCHAIN) || {             \
 		echo Building toolchain: $(TOOLCHAIN);                    \
 		pushd $(RUST_BUILD)                                       \
 		&& $(abspath $(RUST_SRC))/x build                         \
@@ -41,26 +41,26 @@ build: setup
 
 .PHONY: setup
 setup:
-	[ -d $(RUST_SRC) ] || {                                       \
+	@[ -d $(RUST_SRC) ] || {                                       \
 		mkdir -p $(dir $(RUST_SRC))                               \
 		&& git clone $(RUST_GIT) $(RUST_SRC)                      \
 		&& cd $(RUST_SRC)                                         \
 		&& git checkout $(TAG);                                   \
 	}
-	mkdir -p $(RUST_BUILD)
-	cp bootstrap.toml $(RUST_BUILD)
+	@mkdir -p $(RUST_BUILD)
+	@cp bootstrap.toml $(RUST_BUILD)
 
 .PHONY: register-toolchain
 register-toolchain:
-	rustup toolchain link $(TOOLCHAIN) $(RUST_STAGE2_DIR)
+	@rustup toolchain link $(TOOLCHAIN) $(RUST_STAGE2_DIR)
 
 print-%:
 	@echo $*=$($*)
 
 .PHONY: clean
 clean:
-	cd $(RUST_BUILD) && ./x clean
+	@cd $(RUST_BUILD) && ./x clean
 
 .PHONY: distclean
 distclean:
-	rm -Rf $(RUST_BUILD) $(RUST_SRC)
+	@rm -Rf $(RUST_BUILD) $(RUST_SRC)

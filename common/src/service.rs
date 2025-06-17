@@ -1,4 +1,17 @@
-use crate::{api, clipboard, command, ftp, input, socks5, stage0};
+use crate::api;
+use crate::input;
+
+#[cfg(feature = "service-clipboard")]
+use crate::clipboard;
+#[cfg(feature = "service-command")]
+use crate::command;
+#[cfg(feature = "service-ftp")]
+use crate::ftp;
+#[cfg(feature = "service-socks5")]
+use crate::socks5;
+#[cfg(feature = "service-stage0")]
+use crate::stage0;
+
 #[cfg(feature = "backend")]
 use std::collections::hash_map;
 use std::{
@@ -795,11 +808,16 @@ pub(crate) const LOGO: &str = r#"
 |___/ \___/ /_/\_\ \__, |
                    |___/"#;
 
-pub static SERVICES: [&Service; 6] = [
+pub static SERVICES: &[&Service] = &[
+    #[cfg(feature = "service-clipboard")]
     &clipboard::SERVICE,
+    #[cfg(feature = "service-command")]
     &command::SERVICE,
     &input::SERVICE,
+    #[cfg(feature = "service-ftp")]
     &ftp::SERVICE,
+    #[cfg(feature = "service-socks5")]
     &socks5::SERVICE,
+    #[cfg(feature = "service-stage0")]
     &stage0::SERVICE,
 ];

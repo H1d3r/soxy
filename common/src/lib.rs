@@ -6,10 +6,15 @@ pub mod api;
 pub mod input;
 pub mod service;
 
+#[cfg(feature = "service-clipboard")]
 mod clipboard;
+#[cfg(feature = "service-command")]
 mod command;
+#[cfg(feature = "service-ftp")]
 mod ftp;
+#[cfg(feature = "service-socks5")]
 mod socks5;
+#[cfg(feature = "service-stage0")]
 mod stage0;
 
 mod log;

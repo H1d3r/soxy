@@ -28,3 +28,8 @@ path = "src/bin/standalone.rs"
 
 [features]
 log = [ "dep:log", "common/log", "frontend/log" ]
+service-clipboard = [ "common/service-clipboard" ]
+service-command = [ "common/service-command" ]
+service-ftp = [ "common/service-ftp" ]
+service-socks5 = [ "common/service-socks5" ]
+service-stage0 = [ "common/service-stage0" ]

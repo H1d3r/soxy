@@ -114,6 +114,15 @@ The following elements are required to build them:
 - `gcc-multilib` on Debian and Ubuntu to but i686 Linux binaries;
 - [rustup](https://rustup.rs/) installed (see next section).
 
+##### Included services
+
+By default all services are enabled in the `Makefile`. It is possible
+to include only services needed by editing the `SERVICES`
+variable at the beginning of the `Makefile`.
+
+```Makefile
+SERVICES ?= clipboard command ftp socks5 stage0
+```
 
 ##### Make Targets
 

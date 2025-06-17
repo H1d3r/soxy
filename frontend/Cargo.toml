@@ -42,3 +42,8 @@ codegen-units = 1
 
 [features]
 log = [ "common/log", "dep:log" ]
+service-clipboard = [ "common/service-clipboard" ]
+service-command = [ "common/service-command" ]
+service-ftp = [ "common/service-ftp" ]
+service-socks5 = [ "common/service-socks5" ]
+service-stage0 = [ "common/service-stage0" ]
