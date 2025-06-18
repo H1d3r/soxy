@@ -1,4 +1,4 @@
-use common::{api, service};
+use common::{api, channel, frontend, service};
 use std::{fmt, io, net, str::FromStr, sync, thread};
 
 mod client;
@@ -150,7 +150,7 @@ fn svc_commander(control: &crossbeam_channel::Receiver<svc::Command>) -> Result<
 
 #[allow(clippy::missing_panics_doc)]
 pub fn init(
-    frontend_channel: service::Channel,
+    frontend_channel: channel::Channel,
     backend_to_frontend: crossbeam_channel::Receiver<api::ChannelControl>,
 ) -> Result<(), Error> {
     let config = match config::Config::read()? {
@@ -168,18 +168,20 @@ pub fn init(
 
     let servers = config.services.into_iter().filter(|s| s.enabled).try_fold(
         vec![],
-        |mut servers, service| {
-            let ip = net::IpAddr::from_str(&service.ip.unwrap_or(config.ip.clone()))
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
-            let port = service.port;
-            let service = service::lookup(service.name.as_str())
-                .ok_or(Error::Config(config::Error::UnknownService(service.name)))?;
-            match service.frontend() {
+        |mut servers, service_conf| {
+            let service = service::lookup(service_conf.name.as_str()).ok_or(Error::Config(
+                config::Error::UnknownService(service_conf.name),
+            ))?;
+            match service.frontend().and_then(frontend::Frontend::tcp) {
                 None => Ok::<_, Error>(servers),
-                Some(service::Frontend::Tcp { default_port, .. }) => {
-                    let port = port.unwrap_or(*default_port);
+                Some(frontend::FrontendTcp { default_port, .. }) => {
+                    let ip = net::IpAddr::from_str(&service_conf.ip.unwrap_or(config.ip.clone()))
+                        .map_err(|e| {
+                        io::Error::new(io::ErrorKind::InvalidData, e.to_string())
+                    })?;
+                    let port = service_conf.port.unwrap_or(*default_port);
                     let sockaddr = net::SocketAddr::new(ip, port);
-                    let server = common::service::TcpFrontendServer::bind(service, sockaddr)?;
+                    let server = frontend::FrontendTcpServer::bind(service, sockaddr)?;
 
                     servers.push(server);
 
@@ -247,7 +249,7 @@ pub(crate) fn start() {
         })
         .unwrap();
 
-    let services = service::Channel::new(frontend_to_svc_send);
+    let services = channel::Channel::new(frontend_to_svc_send);
 
     if let Err(e) = init(services, svc_to_frontend_receive) {
         common::error!("init error: {e}");

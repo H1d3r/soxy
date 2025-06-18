@@ -1,4 +1,4 @@
-use common::service;
+use common::{channel, service};
 
 const CHANNEL_SIZE: usize = 256;
 
@@ -9,8 +9,8 @@ fn main() {
     let (backend_to_frontend_send, backend_to_frontend_receive) =
         crossbeam_channel::bounded(CHANNEL_SIZE);
 
-    let backend_channel = service::Channel::new(backend_to_frontend_send);
-    let frontend_channel = service::Channel::new(frontend_to_backend_send);
+    let backend_channel = channel::Channel::new(backend_to_frontend_send);
+    let frontend_channel = channel::Channel::new(frontend_to_backend_send);
 
     if let Err(e) = soxy::init(frontend_channel, backend_to_frontend_receive) {
         common::error!("error: {e}");

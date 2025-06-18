@@ -1,12 +1,12 @@
 use super::protocol;
-use crate::service;
+use crate::{rdp, service};
 use std::{
     fs,
     io::{self, Write},
     path,
 };
 
-fn cmd_cwd(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io::Error> {
+fn cmd_cwd(stream: &mut rdp::RdpStream<'_>, path: String) -> Result<(), io::Error> {
     crate::info!("change directory {path:?}");
 
     let path = path::PathBuf::from(path);
@@ -19,7 +19,7 @@ fn cmd_cwd(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io::
     Ok(())
 }
 
-fn cmd_dele(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io::Error> {
+fn cmd_dele(stream: &mut rdp::RdpStream<'_>, path: String) -> Result<(), io::Error> {
     crate::info!("delete {path:?}");
 
     let path = path::PathBuf::from(path);
@@ -37,7 +37,7 @@ fn cmd_dele(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io:
     Ok(())
 }
 
-fn cmd_list(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io::Error> {
+fn cmd_list(stream: &mut rdp::RdpStream<'_>, path: String) -> Result<(), io::Error> {
     crate::info!("list {path:?}");
 
     let path = path::PathBuf::from(path);
@@ -70,7 +70,7 @@ fn cmd_list(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io:
     Ok(())
 }
 
-fn cmd_nlst(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io::Error> {
+fn cmd_nlst(stream: &mut rdp::RdpStream<'_>, path: String) -> Result<(), io::Error> {
     crate::info!("name list {path:?}");
 
     let path = path::PathBuf::from(path);
@@ -87,7 +87,7 @@ fn cmd_nlst(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io:
     Ok(())
 }
 
-fn cmd_retr(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io::Error> {
+fn cmd_retr(stream: &mut rdp::RdpStream<'_>, path: String) -> Result<(), io::Error> {
     crate::info!("downloading {path:?}");
 
     let path = path::PathBuf::from(path);
@@ -105,7 +105,7 @@ fn cmd_retr(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io:
     Ok(())
 }
 
-fn cmd_size(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io::Error> {
+fn cmd_size(stream: &mut rdp::RdpStream<'_>, path: String) -> Result<(), io::Error> {
     crate::info!("size {path:?}");
 
     let path = path::PathBuf::from(path);
@@ -123,7 +123,7 @@ fn cmd_size(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io:
     Ok(())
 }
 
-fn cmd_stor(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io::Error> {
+fn cmd_stor(stream: &mut rdp::RdpStream<'_>, path: String) -> Result<(), io::Error> {
     crate::info!("uploading {path:?}");
 
     let path = path::PathBuf::from(path);
@@ -143,7 +143,7 @@ fn cmd_stor(stream: &mut service::RdpStream<'_>, path: String) -> Result<(), io:
     Ok(())
 }
 
-pub(crate) fn handler(mut stream: service::RdpStream<'_>) -> Result<(), io::Error> {
+pub(crate) fn handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
     crate::debug!("starting");
 
     let cmd = protocol::DataCommand::receive(&mut stream)?;

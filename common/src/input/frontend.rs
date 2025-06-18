@@ -1,4 +1,4 @@
-use crate::{api, input, service};
+use crate::{api, channel, frontend, input, service};
 use std::{
     fs,
     io::{self, BufRead, Write},
@@ -6,13 +6,13 @@ use std::{
 };
 
 // https://patorjk.com/software/taag/#p=display&h=0&v=0&f=Ogre&t=input%0A
-const LOGO: &str = r#"
+const LOGO: &str = r"
  _                       _
 (_) _ __   _ __   _   _ | |_
 | || '_ \ | '_ \ | | | || __|
 | || | | || |_) || |_| || |_
 |_||_| |_|| .__/  \__,_| \__|
-          |_|"#;
+          |_|";
 
 const HELP: &str = r#"
 Available commands:
@@ -77,11 +77,12 @@ fn key_lookup(s: &str) -> Option<input::Key> {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) fn tcp_handler(
-    _server: &service::TcpFrontendServer,
+    _server: &frontend::FrontendTcpServer,
     _scope: &thread::Scope,
     stream: net::TcpStream,
-    channel: &service::Channel,
+    channel: &channel::Channel,
 ) -> Result<(), api::Error> {
     let lstream = stream.try_clone()?;
     let mut client_read = io::BufReader::new(lstream);
@@ -96,7 +97,7 @@ pub(crate) fn tcp_handler(
     let mut line = String::new();
 
     loop {
-        client_write.write(PROMPT.as_bytes())?;
+        client_write.write_all(PROMPT.as_bytes())?;
         client_write.flush()?;
 
         let _ = client_read.read_line(&mut line)?;

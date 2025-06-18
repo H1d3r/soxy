@@ -1,5 +1,5 @@
 use super::protocol;
-use crate::{service, util};
+use crate::{rdp, service, util};
 use std::{
     io::{self, Write},
     net,
@@ -25,7 +25,7 @@ fn encode_addr(addr: &net::SocketAddr) -> Result<Vec<u8>, io::Error> {
     Ok(data)
 }
 
-fn command_connect(mut stream: service::RdpStream<'_>, to_tcp: &str) -> Result<(), io::Error> {
+fn command_connect(mut stream: rdp::RdpStream<'_>, to_tcp: &str) -> Result<(), io::Error> {
     crate::info!("connecting to {to_tcp:#?}");
 
     match net::TcpStream::connect(to_tcp) {
@@ -57,7 +57,7 @@ fn command_connect(mut stream: service::RdpStream<'_>, to_tcp: &str) -> Result<(
     }
 }
 
-fn command_bind(mut stream: service::RdpStream<'_>) -> Result<(), io::Error> {
+fn command_bind(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
     match util::find_best_address() {
         Err(e) => {
             crate::error!("failed to enumerate network interfaces: {e}");
@@ -113,7 +113,7 @@ fn command_bind(mut stream: service::RdpStream<'_>) -> Result<(), io::Error> {
     }
 }
 
-pub(crate) fn handler(mut stream: service::RdpStream<'_>) -> Result<(), io::Error> {
+pub(crate) fn handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
     crate::debug!("starting");
 
     let cmd = protocol::Command::receive(&mut stream)?;

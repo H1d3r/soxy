@@ -3,7 +3,11 @@ use std::ffi;
 use std::fs;
 
 pub mod api;
+pub mod channel;
+#[cfg(feature = "frontend")]
+pub mod frontend;
 pub mod input;
+mod rdp;
 pub mod service;
 
 #[cfg(feature = "service-clipboard")]
@@ -52,15 +56,15 @@ impl<'a> TryFrom<&'a str> for Level {
 pub const fn init_logs(_level: Level, _file: Option<&String>) {}
 
 #[cfg(feature = "log")]
-impl Into<simplelog::LevelFilter> for Level {
-    fn into(self) -> simplelog::LevelFilter {
-        match self {
-            Self::Off => simplelog::LevelFilter::Off,
-            Self::Error => simplelog::LevelFilter::Error,
-            Self::Warn => simplelog::LevelFilter::Warn,
-            Self::Info => simplelog::LevelFilter::Info,
-            Self::Debug => simplelog::LevelFilter::Debug,
-            Self::Trace => simplelog::LevelFilter::Trace,
+impl From<Level> for simplelog::LevelFilter {
+    fn from(level: Level) -> Self {
+        match level {
+            Level::Off => simplelog::LevelFilter::Off,
+            Level::Error => simplelog::LevelFilter::Error,
+            Level::Warn => simplelog::LevelFilter::Warn,
+            Level::Info => simplelog::LevelFilter::Info,
+            Level::Debug => simplelog::LevelFilter::Debug,
+            Level::Trace => simplelog::LevelFilter::Trace,
         }
     }
 }

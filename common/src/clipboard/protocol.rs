@@ -53,7 +53,7 @@ impl Command {
                 let mut buf = vec![0u8; len];
                 stream.read_exact(&mut buf)?;
 
-                Ok(Self::WriteText(Vec::from(buf)))
+                Ok(Self::WriteText(buf))
             }
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -122,7 +122,7 @@ impl Response {
                 let mut buf = vec![0u8; len];
                 stream.read_exact(&mut buf)?;
 
-                Ok(Self::Text(Vec::from(buf)))
+                Ok(Self::Text(buf))
             }
             ID_FAILED => Ok(Self::Failed),
             ID_WRITE_DONE => Ok(Self::WriteDone),

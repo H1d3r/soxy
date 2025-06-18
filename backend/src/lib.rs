@@ -1,4 +1,4 @@
-use common::{self, api, service};
+use common::{self, api, channel, service};
 use std::{ffi, fmt, mem, sync, thread, time};
 use svc::Handler;
 use windows_sys as ws;
@@ -228,7 +228,7 @@ fn main_res() -> Result<(), Error> {
         crossbeam_channel::bounded(TO_SVC_CHANNEL_SIZE);
     let (frontend_to_backend_send, frontend_to_backend_receive) = crossbeam_channel::unbounded();
 
-    let backend_channel = service::Channel::new(backend_to_frontend_send);
+    let backend_channel = channel::Channel::new(backend_to_frontend_send);
 
     thread::Builder::new()
         .name("backend".into())

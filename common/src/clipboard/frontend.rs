@@ -1,18 +1,18 @@
 use super::protocol;
-use crate::{api, service};
+use crate::{api, channel, frontend, service};
 use std::{
     io::{self, BufRead, Write},
     net, thread,
 };
 
 // https://patorjk.com/software/taag/#p=display&h=0&v=0&f=Ogre&t=clipboard%0A
-const LOGO: &str = r#"
+const LOGO: &str = r"
        _  _         _                              _
   ___ | |(_) _ __  | |__    ___    __ _  _ __   __| |
  / __|| || || '_ \ | '_ \  / _ \  / _` || '__| / _` |
 | (__ | || || |_) || |_) || (_) || (_| || |   | (_| |
  \___||_||_|| .__/ |_.__/  \___/  \__,_||_|    \__,_|
-            |_|"#;
+            |_|";
 
 const HELP: &str = r#"
 Available commands:
@@ -24,10 +24,10 @@ Available commands:
 const PROMPT: &str = "clipboard> ";
 
 pub(crate) fn tcp_handler<'a>(
-    _server: &service::TcpFrontendServer,
+    _server: &frontend::FrontendTcpServer,
     _scope: &'a thread::Scope<'a, '_>,
     stream: net::TcpStream,
-    channel: &'a service::Channel,
+    channel: &'a channel::Channel,
 ) -> Result<(), api::Error> {
     let lstream = stream.try_clone()?;
     let mut client_read = io::BufReader::new(lstream);
@@ -42,7 +42,7 @@ pub(crate) fn tcp_handler<'a>(
     let mut line = String::new();
 
     loop {
-        client_write.write(PROMPT.as_bytes())?;
+        client_write.write_all(PROMPT.as_bytes())?;
         client_write.flush()?;
 
         let _ = client_read.read_line(&mut line)?;

@@ -1,9 +1,9 @@
 use super::protocol;
-use crate::service;
+use crate::rdp;
 use copyrs::Clipboard;
 use std::{borrow, io};
 
-pub(crate) fn handler(mut stream: service::RdpStream<'_>) -> Result<(), io::Error> {
+pub(crate) fn handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
     crate::debug!("starting");
 
     loop {

@@ -202,6 +202,11 @@ clippy:
 		echo ; echo "# Clippy on standalone for $$t with $(TOOLCHAIN_STANDALONE_DEBUG)" ; echo ; \
 		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_DEBUG) $@ --features $(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
+	@for t in $(TARGETS) ; do \
+		echo ; echo "# Clippy on common for $$t" ; echo ; \
+		(cd common && cargo $@ --features frontend,backend,log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
+	done
+
 
 .PHONY: cargo-fmt
 cargo-fmt:

@@ -1,5 +1,5 @@
 use super::protocol;
-use crate::{api, service};
+use crate::{api, channel, frontend, rdp, service};
 use std::{
     fmt,
     io::{self, Read, Write},
@@ -81,7 +81,7 @@ fn handshake(stream: &mut net::TcpStream) -> Result<protocol::Command, Error> {
 
 fn command_connect(
     mut stream: net::TcpStream,
-    mut client_rdp: service::RdpStream<'_>,
+    mut client_rdp: rdp::RdpStream<'_>,
 ) -> Result<(), io::Error> {
     let resp = protocol::Response::receive(&mut client_rdp)?;
     resp.answer_to_client(&mut stream)?;
@@ -96,7 +96,7 @@ fn command_connect(
 
 fn command_bind(
     mut stream: net::TcpStream,
-    mut client_rdp: service::RdpStream<'_>,
+    mut client_rdp: rdp::RdpStream<'_>,
 ) -> Result<(), io::Error> {
     // for the bind operation on the backend
     let resp = protocol::Response::receive(&mut client_rdp)?;
@@ -120,10 +120,10 @@ fn command_bind(
 }
 
 pub(crate) fn tcp_handler(
-    _server: &service::TcpFrontendServer,
+    _server: &frontend::FrontendTcpServer,
     _scope: &thread::Scope,
     mut stream: net::TcpStream,
-    channel: &service::Channel,
+    channel: &channel::Channel,
 ) -> Result<(), api::Error> {
     match handshake(&mut stream) {
         Err(e) => match e {

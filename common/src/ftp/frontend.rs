@@ -1,5 +1,5 @@
 use super::protocol;
-use crate::{api, service};
+use crate::{api, channel, frontend, rdp, service};
 use std::{
     io::{self, Write},
     net, path, thread,
@@ -261,7 +261,7 @@ where
 
 fn data_transfer(
     client: net::TcpStream,
-    mut rdp: service::RdpStream,
+    mut rdp: rdp::RdpStream,
     cmd: &protocol::DataCommand,
 ) -> Result<bool, io::Error> {
     let mut status = false;
@@ -304,7 +304,7 @@ fn data_loop<'a>(
     from_control: &crossbeam_channel::Receiver<protocol::DataCommand>,
     to_control: &crossbeam_channel::Sender<protocol::DataReply>,
     to_client: &crossbeam_channel::Sender<Vec<String>>,
-    channel: &'a service::Channel,
+    channel: &'a channel::Channel,
     scope: &'a thread::Scope<'a, '_>,
 ) -> Result<(), api::Error> {
     loop {
@@ -366,10 +366,10 @@ where
 }
 
 pub(crate) fn tcp_handler<'a>(
-    server: &service::TcpFrontendServer,
+    server: &frontend::FrontendTcpServer,
     scope: &'a thread::Scope<'a, '_>,
     stream: net::TcpStream,
-    channel: &'a service::Channel,
+    channel: &'a channel::Channel,
 ) -> Result<(), api::Error> {
     let data_server = net::TcpListener::bind((server.ip, 0))?;
     let data_port = data_server.local_addr().unwrap().port();
