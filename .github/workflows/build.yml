@@ -15,26 +15,66 @@ env:
 
 
 jobs:
-  build-linux-windows:
-    name: Build for Linux and Windows
+  build-linux:
+    name: Build for Linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Dependencies
-        run: sudo apt install gcc-multilib libc-dev clang mingw-w64 clang
+        run: sudo apt install gcc-multilib libc-dev clang
 
       - name: Rustup update
         run: rustup update
 
-      - name: Setup
-        run: make setup
+      - name: Setup and build
+        run: |
+          TARGETS_FRONTEND="i686-unknown-linux-gnu x86_64-unknown-linux-gnu" \
+          TARGETS_BACKEND="i686-unknown-linux-gnu x86_64-unknown-linux-gnu" \
+          TARGETS_STANDALONE="i686-unknown-linux-gnu x86_64-unknown-linux-gnu" \
+          make setup debug release
 
-      - name: Build debug
-        run: make debug
+      - name: Gather artifacts
+        run: |
+          mkdir -p artifacts
+          cp -R debug release artifacts/
 
-      - name: Build release
-        run: make release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: artifacts
+          retention-days: 0
+
+
+  build-windows:
+    name: Build for Windows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencies
+        run: sudo apt install gcc-multilib libc-dev clang mingw-w64
+
+      - name: Rustup update
+        run: rustup update
+
+      - name: Setup and build (mingw)
+        run: |
+          TARGETS_FRONTEND="i686-pc-windows-gnu x86_64-pc-windows-gnu" \
+            TARGETS_BACKEND="i686-pc-windows-gnu x86_64-pc-windows-gnu" \
+            TARGETS_STANDALONE="i686-pc-windows-gnu x86_64-pc-windows-gnu" \
+            make setup debug release
+
+      - name: Setup and build (llvm-mingw)
+        run: |
+          wget https://github.com/mstorsjo/llvm-mingw/releases/download/20250613/llvm-mingw-20250613-ucrt-ubuntu-22.04-x86_64.tar.xz
+          tar xaf llvm-mingw-20250613-ucrt-ubuntu-22.04-x86_64.tar.xz
+          PATH=$PATH:$(pwd)/llvm-mingw-20250613-ucrt-ubuntu-22.04-x86_64/bin \
+            TARGETS_FRONTEND="i686-pc-windows-gnullvm x86_64-pc-windows-gnullvm" \
+            TARGETS_BACKEND="i686-pc-windows-gnullvm x86_64-pc-windows-gnullvm" \
+            TARGETS_STANDALONE="i686-pc-windows-gnullvm x86_64-pc-windows-gnullvm" \
+            make setup debug release
 
       - name: Add win7 toolchain env vars
         run: |
@@ -67,13 +107,13 @@ jobs:
 
       - name: Gather artifacts
         run: |
-          mkdir artifacts
-          mv debug release artifacts/
+          mkdir -p artifacts
+          cp -R debug release artifacts/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-windows
+          name: windows
           path: artifacts
           retention-days: 0
 
@@ -161,7 +201,7 @@ jobs:
   package:
     name: Package artifacts
     runs-on: ubuntu-latest
-    needs: [ build-linux-windows, build-frontend-macos-arm64, build-frontend-macos-x86_64]
+    needs: [ build-linux, build-windows, build-frontend-macos-arm64, build-frontend-macos-x86_64 ]
     steps:
       - uses: actions/checkout@v4
 

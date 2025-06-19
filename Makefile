@@ -41,6 +41,9 @@ setup:
 	@for toolchain in $(TOOLCHAINS) ; do \
 	        echo ; echo "# Installing toolchain $$toolchain" ; echo ; \
 		rustup toolchain add $$toolchain || exit 1 ; \
+		if [[ "$$toolchain" == "nightly" ]] ; then \
+			rustup component add --toolchain $$toolchain rust-src || exit 1 ; \
+		fi ; \
 		for target in $(TARGETS) ; do \
 			echo ; echo "# Installing component $$target for $$toolchain" ; echo ; \
 			rustup target add --toolchain $$toolchain $$target || exit 1 ; \
