@@ -249,17 +249,32 @@ Create the FreeRDP plugin directory and copy the library to it. Be careful, the
 name of the library **must** be `libsoxy-client.so` (not `libsoxy.so`) otherwise
 the library will not be found by FreeRDP/Remmina:
 
-* for FreeRDP 2:
+* for FreeRDP 2 on Arch:
+
+  ```bash
+  sudo mkdir -p /usr/lib/freerdp2
+  sudo cp release/frontend/x86_64-unknown-linux-gnu/libsoxy.so /usr/lib/freerdp2/libsoxy-client.so
+  ```
+
+* for FreeRDP 2 on Debian/Ubuntu:
 
   ```bash
   sudo mkdir -p /usr/lib/x86_64-linux-gnu/freerdp2
   sudo cp release/frontend/x86_64-unknown-linux-gnu/libsoxy.so /usr/lib/x86_64-linux-gnu/freerdp2/libsoxy-client.so
   ```
-* for FreeRDP 3:
+
+* for FreeRDP 3 on Arch:
 
   ```bash
   sudo mkdir -p /usr/lib/freerdp3
   sudo cp release/frontend/x86_64-unknown-linux-gnu/libsoxy.so /usr/lib/freerdp3/libsoxy-client.so
+  ```
+
+* for FreeRDP 3 on Debian/Ubuntu:
+
+  ```bash
+  sudo mkdir -p /usr/lib/x86_64-linux-gnu/freerdp3
+  sudo cp release/frontend/x86_64-unknown-linux-gnu/libsoxy.so /usr/lib/x86_64-linux-gnu/freerdp3/libsoxy-client.so
   ```
 
 When you launch FreeRDP from the command line, you have to add the argument
