@@ -233,6 +233,20 @@ fn main_res() -> Result<(), Error> {
     thread::Builder::new()
         .name("backend".into())
         .spawn(move || {
+            #[cfg(target_os = "windows")]
+            {
+                let ret_exec = unsafe {
+                    ws::Win32::System::Power::SetThreadExecutionState(
+                        ws::Win32::System::Power::ES_CONTINUOUS
+                            | ws::Win32::System::Power::ES_DISPLAY_REQUIRED
+                            | ws::Win32::System::Power::ES_SYSTEM_REQUIRED,
+                    )
+                };
+
+                if ret_exec == 0 {
+                    common::warn!("failed to set thread ExecutionState with: ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED");
+                }
+            }
             if let Err(e) =
                 backend_channel.start(service::Kind::Backend, &frontend_to_backend_receive)
             {
