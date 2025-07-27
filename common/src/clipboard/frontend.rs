@@ -95,7 +95,6 @@ pub(crate) fn tcp_handler<'a>(
                 }
             }
             "EXIT" | "QUIT" => {
-                let _ = rdp.disconnect();
                 let lstream = client_read.into_inner();
                 let _ = lstream.shutdown(net::Shutdown::Both);
                 return Ok(());

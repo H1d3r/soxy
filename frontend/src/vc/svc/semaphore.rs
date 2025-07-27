@@ -3,10 +3,10 @@
 use std::sync::{Arc, Condvar, Mutex};
 
 #[derive(Clone)]
-pub struct Semaphore(Arc<(Mutex<usize>, Condvar)>);
+pub(crate) struct Semaphore(Arc<(Mutex<usize>, Condvar)>);
 
 impl Semaphore {
-    pub fn new(count: usize) -> Self {
+    pub(crate) fn new(count: usize) -> Self {
         Self(Arc::new((Mutex::new(count), Condvar::new())))
     }
 

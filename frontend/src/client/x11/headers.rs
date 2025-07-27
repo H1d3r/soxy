@@ -6,4 +6,4 @@
 #![allow(clippy::identity_op)]
 #![allow(clippy::unreadable_literal)]
 
-include!(concat!(env!("OUT_DIR"), "/x11_headers.rs"));
+include!(concat!(env!("OUT_DIR"), "/client_x11_headers.rs"));

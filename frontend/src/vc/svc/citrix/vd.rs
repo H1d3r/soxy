@@ -1,6 +1,8 @@
 use super::headers;
+#[cfg(feature = "service-input")]
 use crate::client;
-use std::{ffi, mem, ptr, slice, sync};
+use crate::{control, vc};
+use std::{ffi, mem, ops::Deref, ptr, slice, sync};
 
 struct VirtualDriver {
     data: headers::VD,
@@ -100,17 +102,22 @@ static VD: sync::OnceLock<VirtualDriver> = sync::OnceLock::new();
 
 #[unsafe(no_mangle)]
 extern "C" fn Load(pLink: headers::PDLLLINK) -> ffi::c_int {
-    common::debug!("Load");
+    common::trace!("Load");
 
-    crate::start();
+    crate::init();
 
     let vd = VD.get_or_init(VirtualDriver::default);
 
+    #[cfg(feature = "service-input")]
     let client = client::Client::load_from_entrypoints(0, ptr::null_mut());
 
+    #[cfg(feature = "service-input")]
     let svc = super::Svc::new(client);
-    let svc = crate::svc::Svc::Citrix(svc);
-    let _ = crate::svc::SVC.write().unwrap().replace(svc);
+    #[cfg(not(feature = "service-input"))]
+    let svc = super::Svc {};
+
+    let svc = vc::svc::Svc::Citrix(svc);
+    let vc = vc::GenericChannel::Static(svc);
 
     match unsafe { pLink.as_mut() } {
         None => {
@@ -122,6 +129,12 @@ extern "C" fn Load(pLink: headers::PDLLLINK) -> ffi::c_int {
             pLink.pProcedures = ptr::from_ref(&vd.procedures).cast_mut().cast();
             pLink.pData = ptr::from_ref(&vd.data).cast_mut().cast();
 
+            crate::CONTROL
+                .deref()
+                .channel_connector()
+                .send(control::FromVc::Loaded(vc))
+                .expect("internal error: failed to send control message");
+
             headers::CLIENT_STATUS_SUCCESS
         }
     }
@@ -132,7 +145,7 @@ extern "C" fn VdUnload(
     pLink: headers::PDLLLINK,
     _puiSize: headers::PUINT16,
 ) -> ffi::c_int {
-    common::debug!("VdUnload");
+    common::trace!("VdUnload");
 
     if let Some(pLink) = unsafe { pLink.as_mut() } {
         pLink.ProcCount = 0;
@@ -140,7 +153,11 @@ extern "C" fn VdUnload(
         pLink.pData = ptr::null_mut();
     }
 
-    let _ = crate::svc::SVC.write().unwrap().take();
+    crate::CONTROL
+        .deref()
+        .channel_connector()
+        .send(control::FromVc::Terminated)
+        .expect("internal error: failed to send control message");
 
     headers::CLIENT_STATUS_SUCCESS
 }
@@ -150,7 +167,7 @@ extern "C" fn VdOpen(
     pVdOpen: headers::PVDOPEN,
     puiSize: headers::PUINT16,
 ) -> ffi::c_int {
-    common::debug!("VdOpen");
+    common::trace!("VdOpen");
 
     match unsafe { (pVd.as_mut(), pVdOpen.as_mut(), puiSize.as_mut()) } {
         (None, _, _) | (_, None, _) | (_, _, None) => headers::CLIENT_ERROR,
@@ -179,7 +196,7 @@ extern "C" fn VdClose(
     pDllClose: headers::PDLLCLOSE,
     puiSize: headers::PUINT16,
 ) -> ffi::c_int {
-    common::debug!("VdClose");
+    common::trace!("VdClose");
 
     match unsafe { (pVd.as_mut(), pDllClose.as_mut(), puiSize.as_mut()) } {
         (None, _, _) | (_, None, _) | (_, _, None) => headers::CLIENT_ERROR,
@@ -201,7 +218,7 @@ extern "C" fn VdInfo(
     pDllInfo: headers::PDLLINFO,
     puiSize: headers::PUINT16,
 ) -> ffi::c_int {
-    common::debug!("VdInfo");
+    common::trace!("VdInfo");
 
     match unsafe { (pVd.as_mut(), pDllInfo.as_mut(), puiSize.as_mut()) } {
         (None, _, _) | (_, None, _) | (_, _, None) => headers::CLIENT_ERROR,
@@ -249,7 +266,7 @@ extern "C" fn VdQueryInformation(
     pVdQueryInformation: headers::PVDQUERYINFORMATION,
     puiSize: headers::PUINT16,
 ) -> ffi::c_int {
-    common::debug!("VdQueryInformation");
+    common::trace!("VdQueryInformation");
 
     match unsafe { (pVd.as_mut(), pVdQueryInformation.as_mut(), puiSize.as_mut()) } {
         (None, _, _) | (_, None, _) | (_, _, None) => headers::CLIENT_ERROR,
@@ -272,7 +289,7 @@ extern "C" fn VdSetInformation(
     pVdSetInformation: headers::PVDSETINFORMATION,
     puiSize: headers::PUINT16,
 ) -> ffi::c_int {
-    common::debug!("VdSetInformation");
+    common::trace!("VdSetInformation");
 
     match unsafe { (pVd.as_mut(), pVdSetInformation.as_mut(), puiSize.as_mut()) } {
         (None, _, _) | (_, None, _) | (_, _, None) => headers::CLIENT_ERROR,
@@ -292,67 +309,70 @@ extern "C" fn VdSetInformation(
     }
 }
 
-pub fn WdQueryInformation(
+pub(crate) fn WdQueryInformation(
     vd: &mut headers::VD,
     query_info: &mut headers::WDQUERYINFORMATION,
 ) -> Result<(), ffi::c_int> {
-    common::debug!("WdQueryInformation");
+    common::trace!("WdQueryInformation");
 
-    match unsafe { vd.pWdLink.as_ref() } {
+    let pLink = unsafe { vd.pWdLink.as_ref() }.ok_or(headers::CLIENT_ERROR_NULL_MEM_POINTER)?;
+
+    let pProcedures = pLink.pProcedures as *const headers::PDLLPROCEDURE;
+    let procs: &[headers::PDLLPROCEDURE] =
+        unsafe { slice::from_raw_parts(pProcedures, headers::WDxCOUNT as usize) };
+    match procs[headers::WDxQUERYINFORMATION as usize].as_ref() {
         None => Err(headers::CLIENT_ERROR_NULL_MEM_POINTER),
-        Some(pLink) => {
-            let pProcedures = pLink.pProcedures as *const headers::PDLLPROCEDURE;
-            let procs: &[headers::PDLLPROCEDURE] =
-                unsafe { slice::from_raw_parts(pProcedures, headers::WDxCOUNT as usize) };
-            match procs[headers::WDxQUERYINFORMATION as usize].as_ref() {
-                None => Err(headers::CLIENT_ERROR_NULL_MEM_POINTER),
-                Some(proc) => {
-                    let mut ui_size = u16::try_from(mem::size_of::<headers::WDQUERYINFORMATION>())
-                        .expect("value too large");
+        Some(proc) => {
+            let mut ui_size = u16::try_from(mem::size_of::<headers::WDQUERYINFORMATION>())
+                .expect("value too large");
 
-                    let ret = unsafe {
-                        proc(pLink.pData, ptr::from_mut(query_info).cast(), &mut ui_size)
-                    };
+            let ret = unsafe {
+                proc(
+                    pLink.pData,
+                    ptr::from_mut(query_info).cast(),
+                    &raw mut ui_size,
+                )
+            };
 
-                    if ret != headers::CLIENT_STATUS_SUCCESS {
-                        return Err(ret);
-                    }
-
-                    Ok(())
-                }
+            if ret != headers::CLIENT_STATUS_SUCCESS {
+                return Err(ret);
             }
+
+            Ok(())
         }
     }
 }
 
-pub fn WdSetInformation(
+pub(crate) fn WdSetInformation(
     vd: &mut headers::VD,
     set_info: &mut headers::WDSETINFORMATION,
 ) -> Result<(), ffi::c_int> {
-    common::debug!("WdSetInformation");
+    common::trace!("WdSetInformation");
 
-    match unsafe { vd.pWdLink.as_ref() } {
+    let pLink = unsafe { vd.pWdLink.as_ref() }.ok_or(headers::CLIENT_ERROR_NULL_MEM_POINTER)?;
+
+    let pProcedures = pLink.pProcedures as *const headers::PDLLPROCEDURE;
+    let procs: &[headers::PDLLPROCEDURE] =
+        unsafe { slice::from_raw_parts(pProcedures, headers::WDxCOUNT as usize) };
+    match procs[headers::WDxSETINFORMATION as usize].as_ref() {
         None => Err(headers::CLIENT_ERROR_NULL_MEM_POINTER),
-        Some(pLink) => {
-            let pProcedures = pLink.pProcedures as *const headers::PDLLPROCEDURE;
-            let procs: &[headers::PDLLPROCEDURE] =
-                unsafe { slice::from_raw_parts(pProcedures, headers::WDxCOUNT as usize) };
-            match procs[headers::WDxSETINFORMATION as usize].as_ref() {
-                None => Err(headers::CLIENT_ERROR_NULL_MEM_POINTER),
-                Some(proc) => {
-                    let mut ui_size = u16::try_from(mem::size_of::<headers::WDSETINFORMATION>())
-                        .expect("value too large");
+        Some(proc) => {
+            let mut ui_size = u16::try_from(mem::size_of::<headers::WDSETINFORMATION>())
+                .expect("value too large");
 
-                    let ret =
-                        unsafe { proc(pLink.pData, ptr::from_mut(set_info).cast(), &mut ui_size) };
+            let ret = unsafe {
+                proc(
+                    pLink.pData,
+                    ptr::from_mut(set_info).cast(),
+                    &raw mut ui_size,
+                )
+            };
 
-                    if ret != headers::CLIENT_STATUS_SUCCESS {
-                        return Err(ret);
-                    }
-
-                    Ok(())
-                }
+            if ret != headers::CLIENT_STATUS_SUCCESS {
+                return Err(ret);
             }
+
+            Ok(())
         }
     }
 }

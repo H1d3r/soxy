@@ -50,7 +50,7 @@ impl fmt::Display for Error {
 
 fn handshake(stream: &mut net::TcpStream) -> Result<protocol::Command, Error> {
     // client greeting
-    let mut buf = [0; 2];
+    let mut buf = [0u8; 2];
     stream.read_exact(&mut buf)?;
 
     // client version ?
@@ -61,7 +61,7 @@ fn handshake(stream: &mut net::TcpStream) -> Result<protocol::Command, Error> {
     let nb_auth = buf[1];
 
     // client proposed authentication methods
-    let mut buf = vec![0; nb_auth as usize];
+    let mut buf = vec![0u8; nb_auth as usize];
     stream.read_exact(&mut buf)?;
 
     // server supports only 0x0 NO AUTHENTICATION
@@ -87,9 +87,10 @@ fn command_connect(
     resp.answer_to_client(&mut stream)?;
 
     if !resp.is_ok() {
-        let _ = stream.shutdown(net::Shutdown::Both);
         return Ok(());
     }
+
+    crate::debug!("starting stream copy");
 
     service::double_stream_copy(SERVICE_KIND, &super::SERVICE, client_rdp, stream)
 }
@@ -103,7 +104,6 @@ fn command_bind(
     resp.answer_to_client(&mut stream)?;
 
     if !resp.is_ok() {
-        let _ = stream.shutdown(net::Shutdown::Both);
         return Ok(());
     }
 
@@ -112,9 +112,10 @@ fn command_bind(
     resp.answer_to_client(&mut stream)?;
 
     if !resp.is_ok() {
-        let _ = stream.shutdown(net::Shutdown::Both);
         return Ok(());
     }
+
+    crate::debug!("starting stream copy");
 
     service::double_stream_copy(SERVICE_KIND, &super::SERVICE, client_rdp, stream)
 }

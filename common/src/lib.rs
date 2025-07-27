@@ -1,11 +1,13 @@
 use std::ffi;
 #[cfg(feature = "log")]
 use std::fs;
+use std::mem;
 
 pub mod api;
 pub mod channel;
 #[cfg(feature = "frontend")]
 pub mod frontend;
+#[cfg(feature = "service-input")]
 pub mod input;
 mod rdp;
 pub mod service;
@@ -25,7 +27,19 @@ mod log;
 #[cfg(feature = "backend")]
 mod util;
 
-pub const VIRTUAL_CHANNEL_NAME: &ffi::CStr = c"SOXY";
+pub const VIRTUAL_CHANNEL_DEFAULT_NAME: &str = "SOXY";
+
+pub fn virtual_channel_name(name: &str) -> Result<[ffi::c_char; 8], String> {
+    if name.len() > 7 {
+        return Err("channel name is too long (> 7)".into());
+    }
+
+    let mut channel_name = [0; 8];
+
+    channel_name[..name.len()].copy_from_slice(name.as_bytes());
+
+    Ok(unsafe { mem::transmute::<[u8; 8], [i8; 8]>(channel_name) })
+}
 
 pub enum Level {
     Off,

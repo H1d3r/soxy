@@ -1,6 +1,6 @@
 [package]
 name = "standalone"
-version = "3.1.0"
+version = "4.0.0"
 edition = "2024"
 
 [dependencies]
@@ -28,8 +28,9 @@ path = "src/bin/standalone.rs"
 
 [features]
 log = [ "dep:log", "common/log", "frontend/log" ]
-service-clipboard = [ "common/service-clipboard" ]
-service-command = [ "common/service-command" ]
-service-ftp = [ "common/service-ftp" ]
-service-socks5 = [ "common/service-socks5" ]
-service-stage0 = [ "common/service-stage0" ]
+service-clipboard = [ "frontend/service-clipboard" ]
+service-command = [ "frontend/service-command" ]
+service-ftp = [ "frontend/service-ftp" ]
+service-input = [ "frontend/service-input" ]
+service-socks5 = [ "frontend/service-socks5" ]
+service-stage0 = [ "frontend/service-stage0" ]

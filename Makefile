@@ -1,9 +1,12 @@
-SERVICES ?= clipboard command ftp socks5 stage0
+SERVICES ?= clipboard command ftp input socks5 stage0
+
+VC ?= dvc svc
 
 TARGETS_FRONTEND ?= i686-pc-windows-gnu x86_64-pc-windows-gnu i686-unknown-linux-gnu x86_64-unknown-linux-gnu
 TARGETS_BACKEND ?= i686-pc-windows-gnu x86_64-pc-windows-gnu i686-unknown-linux-gnu x86_64-unknown-linux-gnu
 TARGETS_STANDALONE ?= i686-pc-windows-gnu x86_64-pc-windows-gnu i686-unknown-linux-gnu x86_64-unknown-linux-gnu
 TARGETS_WIN7_BACKEND ?= x86_64-win7-windows-gnu
+TARGETS_SOXYREG ?= i686-pc-windows-gnu x86_64-pc-windows-gnu
 
 RELEASE_DIR := release
 DEBUG_DIR := debug
@@ -25,6 +28,7 @@ TOOLCHAIN_STANDALONE_RELEASE ?= stable
 TOOLCHAIN_WIN7_TAG ?= 1.87.0
 TOOLCHAIN_WIN7_BACKEND ?= win7-$(TOOLCHAIN_WIN7_TAG)
 TOOLCHAIN_WIN7_RUST_DIR = win7-rustc
+TOOLCHAIN_SOXYREG ?= stable
 
 SHELL := bash
 
@@ -33,8 +37,8 @@ SHELL := bash
 .PHONY: default
 default: setup release
 
-TOOLCHAINS := $(sort $(TOOLCHAIN_FRONTEND_DEBUG) $(TOOLCHAIN_FRONTEND_RELEASE) $(TOOLCHAIN_BACKEND_DEBUG) $(TOOLCHAIN_BACKEND_RELEASE) $(TOOLCHAIN_STANDALONE_DEBUG) $(TOOLCHAIN_STANDALONE_RELEASE))
-TARGETS := $(sort $(TARGETS_FRONTEND) $(TARGETS_BACKEND) $(TARGETS_STANDALONE))
+TOOLCHAINS := $(sort $(TOOLCHAIN_FRONTEND_DEBUG) $(TOOLCHAIN_FRONTEND_RELEASE) $(TOOLCHAIN_BACKEND_DEBUG) $(TOOLCHAIN_BACKEND_RELEASE) $(TOOLCHAIN_STANDALONE_DEBUG) $(TOOLCHAIN_STANDALONE_RELEASE) $(TOOLCHAIN_SOXYREG))
+TARGETS := $(sort $(TARGETS_FRONTEND) $(TARGETS_BACKEND) $(TARGETS_STANDALONE) $(TARGETS_SOXYREG))
 
 .PHONY: setup
 setup:
@@ -52,7 +56,6 @@ setup:
 			fi ; \
 		done ; \
 	done
-
 
 .PHONY: release
 release: build-release
@@ -77,6 +80,14 @@ release: build-release
 			if [[ -f "$$f" ]] ; then \
 				mkdir -p $(RELEASE_DIR)/standalone/$$t && \
 				cp "$$f" $(RELEASE_DIR)/standalone/$$t/ ; \
+			fi ; \
+		done ; \
+	done
+	@for t in $(TARGETS_SOXYREG) ; do \
+		for f in soxyreg/target/$$t/release/*soxyreg{,.exe} ; do \
+			if [[ -f "$$f" ]] ; then \
+				mkdir -p $(RELEASE_DIR)/soxyreg/$$t && \
+				cp "$$f" $(RELEASE_DIR)/soxyreg/$$t/ ; \
 			fi ; \
 		done ; \
 	done
@@ -107,6 +118,14 @@ debug: build-debug
 			fi ; \
 		done ; \
 	done
+	@for t in $(TARGETS_SOXYREG) ; do \
+		for f in soxyreg/target/$$t/debug/*soxyreg{,.exe} ; do \
+			if [[ -f "$$f" ]] ; then \
+				mkdir -p $(DEBUG_DIR)/soxyreg/$$t && \
+				cp "$$f" $(DEBUG_DIR)/soxyreg/$$t/ ; \
+			fi ; \
+		done ; \
+	done
 
 .PHONY: win7
 win7: build-win7
@@ -131,42 +150,54 @@ FEATURES_SERVICES := $(strip $(FEATURES_SERVICES))
 FEATURES_SERVICES := $(shell echo "$(FEATURES_SERVICES)" | sed 's/ /,/g')
 FEATURES_SERVICES := "$(FEATURES_SERVICES)"
 
+FEATURES_VC := $(strip $(VC))
+FEATURES_VC := $(shell echo "$(FEATURES_VC)" | sed 's/ /,/g')
+FEATURES_VC := "$(FEATURES_VC)"
+
 .PHONY: build-release
 build-release:
 	@for t in $(TARGETS_FRONTEND) ; do \
-		echo ; echo "# Building release frontend ($(SERVICES)) for $$t with $(TOOLCHAIN_FRONTEND_RELEASE)" ; echo ; \
-		(cd frontend && cargo +$(TOOLCHAIN_FRONTEND_RELEASE) build --release --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Building release frontend ($(VC)) ($(SERVICES)) for $$t with $(TOOLCHAIN_FRONTEND_RELEASE)" ; echo ; \
+		(cd frontend && cargo +$(TOOLCHAIN_FRONTEND_RELEASE) build --release --features log,$(FEATURES_VC),$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_BACKEND) ; do \
-		echo ; echo "# Building release backend library ($(SERVICES)) for $$t with $(TOOLCHAIN_BACKEND_RELEASE)" ; echo ; \
-		(cd backend && RUSTFLAGS="$(BACKEND_RELEASE_LIB_RUST_FLAGS)" cargo +$(TOOLCHAIN_BACKEND_RELEASE) build --lib --release --features $(FEATURES_SERVICES) --target $$t $(BACKEND_BUILD_FLAGS) && cd ..) || exit 1 ; \
-		echo ; echo "# Building release backend binary ($(SERVICES)) for $$t with $(TOOLCHAIN_BACKEND_RELEASE)" ; echo ; \
+		echo ; echo "# Building release backend library ($(VC)) ($(SERVICES)) for $$t with $(TOOLCHAIN_BACKEND_RELEASE)" ; echo ; \
+		(cd backend && RUSTFLAGS="$(BACKEND_RELEASE_LIB_RUST_FLAGS)" cargo +$(TOOLCHAIN_BACKEND_RELEASE) build --lib --release --features $(FEATURES_VC),$(FEATURES_SERVICES) --target $$t $(BACKEND_BUILD_FLAGS) && cd ..) || exit 1 ; \
+		echo ; echo "# Building release backend binary ($(VC)) ($(SERVICES)) for $$t with $(TOOLCHAIN_BACKEND_RELEASE)" ; echo ; \
 		FLAGS="$(BACKEND_RELEASE_BIN_RUST_FLAGS)" ; \
-		if echo $$t | grep -q windows ; then \
+		if echo "$$t" | grep -q windows ; then \
 			FLAGS="$(BACKEND_RELEASE_BIN_RUST_FLAGS)" ; \
                 fi ; \
-		(cd backend && RUSTFLAGS="$$FLAGS" cargo +$(TOOLCHAIN_BACKEND_RELEASE) build --bins --release --features $(FEATURES_SERVICES) --target $$t $(BACKEND_BUILD_FLAGS) && cd ..) ; \
+		(cd backend && RUSTFLAGS="$$FLAGS" cargo +$(TOOLCHAIN_BACKEND_RELEASE) build --bins --release --features $(FEATURES_VC),$(FEATURES_SERVICES) --target $$t $(BACKEND_BUILD_FLAGS) && cd ..) ; \
 	done
 	@for t in $(TARGETS_STANDALONE) ; do \
 		echo ; echo "# Building release standalone ($(SERVICES)) for $$t with $(TOOLCHAIN_STANDALONE_RELEASE)" ; echo ; \
 		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_RELEASE) build --release --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
+	@for t in $(TARGETS_SOXYREG) ; do \
+		echo ; echo "# Building release soxyreg for $$t with $(TOOLCHAIN_SOXYREG)" ; echo ; \
+		(cd soxyreg && cargo +$(TOOLCHAIN_SOXYREG) build --release --target $$t && cd ..) || exit 1 ; \
+	done
 
 .PHONY: build-debug
 build-debug:
 	@for t in $(TARGETS_FRONTEND) ; do \
-		echo ; echo "# Building debug frontend ($(SERVICES)) for $$t with $(TOOLCHAIN_FRONTEND_DEBUG)" ; echo ; \
-		(cd frontend && cargo +$(TOOLCHAIN_FRONTEND_DEBUG) build --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Building debug frontend ($(VC)) ($(SERVICES)) for $$t with $(TOOLCHAIN_FRONTEND_DEBUG)" ; echo ; \
+		(cd frontend && cargo +$(TOOLCHAIN_FRONTEND_DEBUG) build --features log,$(FEATURES_VC),$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_BACKEND) ; do \
-		echo ; echo "# Building debug backend library ($(SERVICES)) for $$t with $(TOOLCHAIN_BACKEND_DEBUG)" ; echo ; \
-		(cd backend && cargo +$(TOOLCHAIN_BACKEND_DEBUG) build --lib --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
-		echo ; echo "# Building debug backend binary ($(SERVICES)) for $$t with $(TOOLCHAIN_BACKEND_DEBUG)" ; echo ; \
-		(cd backend && cargo +$(TOOLCHAIN_BACKEND_DEBUG) build --bins --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Building debug backend library ($(VC)) ($(SERVICES)) for $$t with $(TOOLCHAIN_BACKEND_DEBUG)" ; echo ; \
+		(cd backend && cargo +$(TOOLCHAIN_BACKEND_DEBUG) build --lib --features log,$(FEATURES_VC),$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Building debug backend binary ($(VC)) ($(SERVICES)) for $$t with $(TOOLCHAIN_BACKEND_DEBUG)" ; echo ; \
+		(cd backend && cargo +$(TOOLCHAIN_BACKEND_DEBUG) build --bins --features log,$(FEATURES_VC),$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_STANDALONE) ; do \
 		echo ; echo "# Building debug standalone ($(SERVICES)) for $$t with $(TOOLCHAIN_STANDALONE_DEBUG)" ; echo ; \
 		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_DEBUG) build --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
+	done
+	@for t in $(TARGETS_SOXYREG) ; do \
+		echo ; echo "# Building debug soxyreg for $$t with $(TOOLCHAIN_SOXYREG)" ; echo ; \
+		(cd soxyreg && cargo +$(TOOLCHAIN_SOXYREG) build --target $$t && cd ..) || exit 1 ; \
 	done
 
 .PHONY: build-win7
@@ -180,12 +211,12 @@ build-win7:
 		echo ; echo "# Building release backend library ($(SERVICES)) for $$t with $(TOOLCHAIN_WIN7_BACKEND)" ; echo ; \
 		(cd backend && \
 		 RUSTFLAGS="$(BACKEND_RELEASE_LIB_RUST_FLAGS)" \
-		 cargo +$(TOOLCHAIN_WIN7_BACKEND) build --lib --release --features $(FEATURES_SERVICES) --target $$t \
+		 cargo +$(TOOLCHAIN_WIN7_BACKEND) build --lib --release --features $(FEATURES_VC),$(FEATURES_SERVICES) --target $$t \
 		) || exit 1 ; \
 		echo ; echo "# Building release backend binary ($(SERVICES)) for $$t with $(TOOLCHAIN_WIN7_BACKEND)" ; echo ; \
 		(cd backend && \
 		 RUSTFLAGS="$(BACKEND_RELEASE_BIN_RUST_FLAGS)" \
-		 cargo +$(TOOLCHAIN_WIN7_BACKEND) build --bins --release --features $(FEATURES_SERVICES) --target $$t \
+		 cargo +$(TOOLCHAIN_WIN7_BACKEND) build --bins --release --features $(FEATURES_VC),$(FEATURES_SERVICES) --target $$t \
 		) ; \
 	done
 
@@ -195,15 +226,19 @@ build-win7:
 clippy:
 	@for t in $(TARGETS_FRONTEND) ; do \
 		echo ; echo "# Clippy on frontend for $$t with $(TOOLCHAIN_FRONTEND_DEBUG)" ; echo ; \
-		(cd frontend && cargo +$(TOOLCHAIN_FRONTEND_DEBUG) $@ --features $(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
+		(cd frontend && cargo +$(TOOLCHAIN_FRONTEND_DEBUG) $@ --features $(FEATURES_VC),$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_BACKEND) ; do \
 		echo ; echo "# Clippy on backend for $$t with $(TOOLCHAIN_BACKEND_DEBUG)" ; echo ; \
-		(cd backend && cargo +$(TOOLCHAIN_BACKEND_DEBUG) $@ --features $(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
+		(cd backend && cargo +$(TOOLCHAIN_BACKEND_DEBUG) $@ --features $(FEATURES_VC),$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_STANDALONE) ; do \
 		echo ; echo "# Clippy on standalone for $$t with $(TOOLCHAIN_STANDALONE_DEBUG)" ; echo ; \
 		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_DEBUG) $@ --features $(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
+	done
+	@for t in $(TARGETS_SOXYREG) ; do \
+		echo ; echo "# Clippy on soxyreg for $$t with $(TOOLCHAIN_SOXYREG)" ; echo ; \
+		(cd soxyreg && cargo +$(TOOLCHAIN_SOXYREG) $@ --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS) ; do \
 		echo ; echo "# Clippy on common for $$t" ; echo ; \
@@ -213,7 +248,7 @@ clippy:
 
 .PHONY: cargo-fmt
 cargo-fmt:
-	@for c in common frontend backend standalone ; do \
+	@for c in common frontend backend standalone soxyreg ; do \
 		(cd $$c && $@ +nightly && cd ..) || exit 1 ; \
 	done
 
@@ -221,6 +256,6 @@ print-%:
 	@echo $*=$($*)
 
 %:
-	@for c in common frontend backend standalone ; do \
+	@for c in common frontend backend standalone soxyreg ; do \
 		(cd $$c && cargo $@ && cd ..) || exit 1 ; \
 	done

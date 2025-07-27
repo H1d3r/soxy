@@ -32,6 +32,7 @@ jobs:
           TARGETS_FRONTEND="i686-unknown-linux-gnu x86_64-unknown-linux-gnu" \
           TARGETS_BACKEND="i686-unknown-linux-gnu x86_64-unknown-linux-gnu" \
           TARGETS_STANDALONE="i686-unknown-linux-gnu x86_64-unknown-linux-gnu" \
+          TARGETS_SOXYREG="" \
           make setup debug release
 
       - name: Gather artifacts
@@ -64,16 +65,18 @@ jobs:
           TARGETS_FRONTEND="i686-pc-windows-gnu x86_64-pc-windows-gnu" \
             TARGETS_BACKEND="i686-pc-windows-gnu x86_64-pc-windows-gnu" \
             TARGETS_STANDALONE="i686-pc-windows-gnu x86_64-pc-windows-gnu" \
+            TARGETS_SOXYREG="i686-pc-windows-gnu x86_64-pc-windows-gnu" \
             make setup debug release
 
       - name: Setup and build (llvm-mingw)
         run: |
-          wget https://github.com/mstorsjo/llvm-mingw/releases/download/20250613/llvm-mingw-20250613-ucrt-ubuntu-22.04-x86_64.tar.xz
-          tar xaf llvm-mingw-20250613-ucrt-ubuntu-22.04-x86_64.tar.xz
-          PATH=$PATH:$(pwd)/llvm-mingw-20250613-ucrt-ubuntu-22.04-x86_64/bin \
+          wget https://github.com/mstorsjo/llvm-mingw/releases/download/20250709/llvm-mingw-20250709-ucrt-ubuntu-22.04-x86_64.tar.xz
+          tar xaf llvm-mingw-20250709-ucrt-ubuntu-22.04-x86_64.tar.xz
+          PATH=$PATH:$(pwd)/llvm-mingw-20250709-ucrt-ubuntu-22.04-x86_64/bin \
             TARGETS_FRONTEND="i686-pc-windows-gnullvm x86_64-pc-windows-gnullvm" \
             TARGETS_BACKEND="i686-pc-windows-gnullvm x86_64-pc-windows-gnullvm" \
             TARGETS_STANDALONE="i686-pc-windows-gnullvm x86_64-pc-windows-gnullvm" \
+            TARGETS_SOXYREG="i686-pc-windows-gnullvm x86_64-pc-windows-gnullvm" \
             make setup debug release
 
       - name: Add win7 toolchain env vars

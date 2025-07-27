@@ -1,40 +1,46 @@
-use std::{cell, io, os, ptr};
+use crate::vc;
+use std::{cell, ffi, io, ops, os, ptr};
 use windows_sys as ws;
 
-pub struct Svc<'a> {
-    open: libloading::Symbol<'a, super::VirtualChannelOpen>,
-    query: libloading::Symbol<'a, super::VirtualChannelQuery>,
+pub(crate) struct Svc<'a> {
+    open: libloading::Symbol<'a, vc::VirtualChannelOpen>,
+    query: libloading::Symbol<'a, vc::VirtualChannelQuery>,
+    close: libloading::Symbol<'a, vc::VirtualChannelClose>,
 }
 
-impl<'a> Svc<'a> {
-    pub(crate) fn load(
-        lib: &'a libloading::Library,
-        symbols: &super::SymbolNames,
-    ) -> Result<Self, super::Error> {
-        unsafe {
-            Ok(Self {
-                open: lib.get(symbols.open.as_bytes())?,
-                query: lib.get(symbols.query.as_bytes())?,
+impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
+    type Handle = Handle<'a>;
+
+    fn load(libs: &'a vc::Libraries) -> Result<Self, vc::Error> {
+        libs.wts()
+            .ok_or(vc::Error::NoLibraryFound)
+            .and_then(|wts| unsafe {
+                Ok(Self {
+                    open: wts.get("WTSVirtualChannelOpen".as_bytes())?,
+                    query: wts.get("WTSVirtualChannelQuery".as_bytes())?,
+                    close: wts.get("WTSVirtualChannelClose".as_bytes())?,
+                })
             })
-        }
     }
 
-    pub(crate) fn open(&self, mut name: [i8; 8]) -> Result<Handle, super::Error> {
+    fn open(&self, name: [ffi::c_char; 8]) -> Result<Self::Handle, vc::Error> {
+        common::debug!("trying to open SVC(low)");
+
         let wtshandle = unsafe {
             (self.open)(
                 ws::Win32::System::RemoteDesktop::WTS_CURRENT_SERVER_HANDLE,
                 ws::Win32::System::RemoteDesktop::WTS_CURRENT_SESSION,
-                name.as_mut_ptr(),
+                name.as_ptr().cast_mut(),
             )
         };
 
         if wtshandle.is_null() {
             let err = io::Error::last_os_error();
-            return Err(super::Error::VirtualChannelOpenStaticChannelFailed(err));
+            return Err(vc::Error::OpenChannelFailed(err.to_string()));
         }
 
         let mut filehandleptr: *mut ws::Win32::Foundation::HANDLE = ptr::null_mut();
-        let filehandleptrptr: *mut *mut ws::Win32::Foundation::HANDLE = &mut filehandleptr;
+        let filehandleptrptr: *mut *mut ws::Win32::Foundation::HANDLE = &raw mut filehandleptr;
         let mut len = 0;
 
         common::trace!("VirtualChannelQuery");
@@ -43,16 +49,16 @@ impl<'a> Svc<'a> {
                 wtshandle,
                 ws::Win32::System::RemoteDesktop::WTSVirtualFileHandle,
                 filehandleptrptr.cast(),
-                &mut len,
+                &raw mut len,
             )
         };
         if ret == ws::Win32::Foundation::FALSE {
             let err = io::Error::last_os_error();
-            return Err(super::Error::VirtualChannelQueryFailed(err));
+            return Err(vc::Error::QueryFailed(err.to_string()));
         }
         if filehandleptr.is_null() {
             let err = io::Error::last_os_error();
-            return Err(super::Error::VirtualChannelQueryFailed(err));
+            return Err(vc::Error::QueryFailed(err.to_string()));
         }
 
         let filehandle = unsafe { filehandleptr.read() };
@@ -67,7 +73,7 @@ impl<'a> Svc<'a> {
                 ws::Win32::System::Threading::GetCurrentProcess(),
                 filehandle,
                 ws::Win32::System::Threading::GetCurrentProcess(),
-                &mut dfilehandle,
+                &raw mut dfilehandle,
                 0,
                 ws::Win32::Foundation::FALSE,
                 ws::Win32::Foundation::DUPLICATE_SAME_ACCESS,
@@ -75,7 +81,7 @@ impl<'a> Svc<'a> {
         };
         if ret == ws::Win32::Foundation::FALSE {
             let err = io::Error::last_os_error();
-            return Err(super::Error::DuplicateHandleFailed(err));
+            return Err(vc::Error::DuplicateHandleFailed(err.to_string()));
         }
         common::trace!("duplicated filehandle = {dfilehandle:?}");
 
@@ -90,7 +96,7 @@ impl<'a> Svc<'a> {
 
         if h_event.is_null() {
             let err = io::Error::last_os_error();
-            return Err(super::Error::CreateEventFailed(err));
+            return Err(vc::Error::CreateEventFailed(err.to_string()));
         }
 
         let anonymous = ws::Win32::System::IO::OVERLAPPED_0 {
@@ -114,7 +120,14 @@ impl<'a> Svc<'a> {
         let read_overlapped = cell::RefCell::new(read_overlapped);
         let write_overlapped = cell::RefCell::new(write_overlapped);
 
+        let name = format!("SVC(low) {:?}", unsafe {
+            ffi::CStr::from_ptr(name.as_ptr())
+        });
+
         Ok(Handle {
+            name,
+            channelhandle: wtshandle,
+            close: self.close.clone(),
             filehandle: dfilehandle,
             read_overlapped,
             write_overlapped,
@@ -122,16 +135,30 @@ impl<'a> Svc<'a> {
     }
 }
 
-pub struct Handle {
+pub(crate) struct Handle<'a> {
+    name: String,
+    channelhandle: ws::Win32::Foundation::HANDLE,
+    close: libloading::Symbol<'a, vc::VirtualChannelClose>,
     filehandle: ws::Win32::Foundation::HANDLE,
     read_overlapped: cell::RefCell<ws::Win32::System::IO::OVERLAPPED>,
     write_overlapped: cell::RefCell<ws::Win32::System::IO::OVERLAPPED>,
 }
 
-impl super::Handler for Handle {
-    fn read(&self, data: &mut [u8]) -> Result<usize, super::Error> {
-        let to_read = os::raw::c_uint::try_from(data.len())
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+// Because of the *mut content (handle but also in OVERLAPPED
+// structure) Rust does not derive Send and Sync. Since we know how
+// those data will be used (especially in terms of concurrency) we
+// assume to unsafely implement Send and Sync.
+unsafe impl Send for Handle<'_> {}
+unsafe impl Sync for Handle<'_> {}
+
+impl vc::Handle for Handle<'_> {
+    fn display_name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    fn read(&self, data: &mut [u8]) -> Result<ops::Range<usize>, vc::Error> {
+        let to_read = os::raw::c_ulong::try_from(data.len())
+            .map_err(|e| vc::Error::ReadFailed(e.to_string()))?;
 
         let mut read = 0;
 
@@ -142,89 +169,96 @@ impl super::Handler for Handle {
                 self.filehandle,
                 data.as_mut_ptr(),
                 to_read,
-                &mut read,
-                &mut *overlapped,
+                &raw mut read,
+                &raw mut *overlapped,
             )
         };
 
-        if ret == 0 {
-            let err = unsafe { ws::Win32::Foundation::GetLastError() };
-            if err == ws::Win32::Foundation::ERROR_IO_PENDING {
+        if ret == ws::Win32::Foundation::FALSE {
+            let ret = unsafe { ws::Win32::Foundation::GetLastError() };
+            if ret == ws::Win32::Foundation::ERROR_IO_PENDING {
                 let mut read = 0;
                 let ret = unsafe {
                     ws::Win32::System::IO::GetOverlappedResult(
                         self.filehandle,
-                        &*overlapped,
-                        &mut read,
+                        &raw const *overlapped,
+                        &raw mut read,
                         ws::Win32::Foundation::TRUE,
                     )
                 };
                 if ret == ws::Win32::Foundation::FALSE {
                     let err = io::Error::last_os_error();
-                    Err(super::Error::VirtualChannelReadFailed(err))
+                    Err(vc::Error::ReadFailed(err.to_string()))
                 } else {
-                    Ok(read as usize)
+                    Ok(0..read as usize)
                 }
             } else {
                 let err = io::Error::last_os_error();
-                Err(super::Error::VirtualChannelReadFailed(err))
+                Err(vc::Error::ReadFailed(format!("ret == 0x{ret:x?} {err}")))
             }
         } else {
-            Ok(read as usize)
+            Ok(0..read as usize)
         }
     }
 
-    fn write(&self, data: &[u8]) -> Result<usize, super::Error> {
-        let to_write = os::raw::c_uint::try_from(data.len())
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+    fn write(&self, data: &[u8]) -> Result<usize, vc::Error> {
+        let to_write = os::raw::c_ulong::try_from(data.len())
+            .map_err(|e| vc::Error::WriteFailed(e.to_string()))?;
 
         let mut written = 0;
 
         let mut overlapped = self.write_overlapped.borrow_mut();
-
-        common::trace!("write {to_write} bytes");
 
         let ret = unsafe {
             ws::Win32::Storage::FileSystem::WriteFile(
                 self.filehandle,
                 data.as_ptr(),
                 to_write,
-                &mut written,
-                &mut *overlapped,
+                &raw mut written,
+                &raw mut *overlapped,
             )
         };
 
         if ret == ws::Win32::Foundation::FALSE {
-            let err = unsafe { ws::Win32::Foundation::GetLastError() };
-            if err == ws::Win32::Foundation::ERROR_IO_PENDING {
+            let ret = unsafe { ws::Win32::Foundation::GetLastError() };
+            if ret == ws::Win32::Foundation::ERROR_IO_PENDING {
                 let mut written = 0;
                 let ret = unsafe {
                     ws::Win32::System::IO::GetOverlappedResult(
                         self.filehandle,
-                        &*overlapped,
-                        &mut written,
+                        &raw const *overlapped,
+                        &raw mut written,
                         ws::Win32::Foundation::TRUE,
                     )
                 };
                 if ret == ws::Win32::Foundation::FALSE {
                     let err = io::Error::last_os_error();
-                    Err(super::Error::VirtualChannelReadFailed(err))
+                    Err(vc::Error::WriteFailed(err.to_string()))
                 } else {
                     Ok(written as usize)
                 }
             } else {
                 let err = io::Error::last_os_error();
-                Err(super::Error::VirtualChannelWriteFailed(err))
+                Err(vc::Error::WriteFailed(format!("ret == 0x{ret:x?} {err}")))
             }
         } else {
             Ok(written as usize)
         }
     }
-}
 
-// Because of the *mut content (handle but also in OVERLAPPED
-// structure) Rust does not derive Send and Sync. Since we know how
-// those data will be used (especially in terms of concurrency) we
-// assume to unsafely implement Send and Sync.
-unsafe impl Send for Handle {}
-unsafe impl Sync for Handle {}
+    fn close(&self) -> Result<(), vc::Error> {
+        let ret = unsafe { ws::Win32::Foundation::CloseHandle(self.filehandle) };
+        if ret == ws::Win32::Foundation::FALSE {
+            let err = io::Error::last_os_error();
+            return Err(vc::Error::CloseChannelFailed(err.to_string()));
+        }
+
+        let ret = unsafe { (self.close)(self.channelhandle) };
+        if ret == ws::Win32::Foundation::FALSE {
+            let err = io::Error::last_os_error();
+            return Err(vc::Error::CloseChannelFailed(err.to_string()));
+        }
+
+        Ok(())
+    }
+}

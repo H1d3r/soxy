@@ -1,6 +1,6 @@
 [package]
 name = "backend"
-version = "3.1.0"
+version = "4.0.0"
 edition = "2024"
 
 [dependencies]
@@ -50,5 +50,8 @@ log = [ "common/log", "dep:log" ]
 service-clipboard = [ "common/service-clipboard" ]
 service-command = [ "common/service-command" ]
 service-ftp = [ "common/service-ftp" ]
+service-input = [ "common/service-input" ]
 service-socks5 = [ "common/service-socks5" ]
 service-stage0 = [ "common/service-stage0" ]
+dvc = []
+svc = []

@@ -1,6 +1,6 @@
 [package]
 name = "common"
-version = "3.1.0"
+version = "4.0.0"
 edition = "2024"
 
 [dependencies]
@@ -23,5 +23,6 @@ frontend = [ ]
 service-clipboard = [ ]
 service-command = [ ]
 service-ftp = [ ]
+service-input = [ ]
 service-socks5 = [ ]
 service-stage0 = [ ]

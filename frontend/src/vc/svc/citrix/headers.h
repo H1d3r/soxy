@@ -9,6 +9,9 @@ typedef unsigned char IU8;
 typedef IU8 UCHAR;
 typedef UCHAR *PUCHAR;
 
+typedef signed char I8;
+typedef I8 CHAR;
+
 typedef IU8 BYTE;
 typedef BYTE *LPBYTE;
 
@@ -461,8 +464,8 @@ typedef struct _MODULE_C2H {
   BYTE ModuleClass;
   BYTE VersionL;
   BYTE VersionH;
-  BYTE ModuleName[13];
-  BYTE HostModuleName[9];
+  CHAR ModuleName[13];
+  CHAR HostModuleName[9];
   USHORT ModuleDate;
   USHORT ModuleTime;
   ULONG ModuleSize;

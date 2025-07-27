@@ -17,7 +17,7 @@ impl FrontendTcpServer {
         service: &'static service::Service,
         tcp: net::SocketAddr,
     ) -> Result<Self, io::Error> {
-        crate::info!("accepting {service} clients on {tcp}");
+        crate::info!("binding {service} clients on {tcp}");
 
         let server = net::TcpListener::bind(tcp)?;
         let ip = server.local_addr()?.ip();

@@ -72,7 +72,6 @@ pub(crate) fn backend_handler(rdp_stream: rdp::RdpStream<'_>) -> Result<(), io::
         } else {
             crate::debug!("stopped");
         }
-        rdp_stream_read.disconnect();
 
         Ok(())
     })

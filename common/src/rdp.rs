@@ -1,153 +1,176 @@
 use crate::{api, channel, service};
 
 use std::{
+    cmp, fmt,
     io::{self, Write},
-    sync,
+    net, sync,
 };
 
-enum RdpStreamState {
-    Ready,
-    Connected,
-    Disconnected,
+enum State {
+    ReadWrite(crossbeam_channel::Receiver<api::Chunk>),
+    ReadOnly(crossbeam_channel::Receiver<api::Chunk>),
+    WriteOnly,
+    Closed,
 }
 
-impl RdpStreamState {
-    const fn is_connected(&self) -> bool {
-        matches!(self, Self::Connected)
+impl State {
+    fn will_send(&self) -> Result<(), api::Error> {
+        match self {
+            Self::ReadWrite(_) | Self::WriteOnly => Ok(()),
+            Self::ReadOnly(_) | Self::Closed => Err(api::Error::Io(io::Error::new(
+                io::ErrorKind::BrokenPipe,
+                format!("cannot send in state {self}"),
+            ))),
+        }
+    }
+
+    fn will_receive(&self) -> Result<&crossbeam_channel::Receiver<api::Chunk>, api::Error> {
+        match self {
+            Self::ReadWrite(from_rdp) | Self::ReadOnly(from_rdp) => Ok(from_rdp),
+            Self::WriteOnly | Self::Closed => Err(api::Error::Io(io::Error::new(
+                io::ErrorKind::BrokenPipe,
+                format!("cannot receive in state {self}"),
+            ))),
+        }
     }
 }
 
-struct RdpStreamCommon<'a> {
+impl fmt::Display for State {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::ReadWrite(_) => write!(f, "ReadWWrite"),
+            Self::ReadOnly(_) => write!(f, "ReadOnly"),
+            Self::WriteOnly => write!(f, "WriteOnly"),
+            Self::Closed => write!(f, "Close"),
+        }
+    }
+}
+
+struct Handle<'a> {
     channel: &'a channel::Channel,
     service: &'a service::Service,
     client_id: api::ClientId,
-    state: RdpStreamState,
+    state: sync::Arc<sync::RwLock<State>>,
 }
 
-impl RdpStreamCommon<'_> {
-    #[cfg(feature = "backend")]
-    fn accept(&mut self) -> Result<(), io::Error> {
-        match &self.state {
-            RdpStreamState::Ready => {
-                crate::debug!("{} accept {:x}", self.service, self.client_id);
-                self.state = RdpStreamState::Connected;
-                Ok(())
-            }
-            RdpStreamState::Connected => Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
-                "already connected",
-            )),
-            RdpStreamState::Disconnected => {
-                Err(io::Error::new(io::ErrorKind::Interrupted, "disconnected"))
-            }
-        }
-    }
-
-    #[cfg(feature = "frontend")]
-    fn connect(&mut self) -> Result<(), io::Error> {
-        match &self.state {
-            RdpStreamState::Ready => {
-                self.channel
-                    .send_chunk(api::Chunk::start(self.client_id, self.service)?)
-                    .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e.to_string()))?;
-                crate::debug!("connect",);
-                self.state = RdpStreamState::Connected;
-                Ok(())
-            }
-            RdpStreamState::Connected => Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
-                "already connected",
-            )),
-            RdpStreamState::Disconnected => {
-                Err(io::Error::new(io::ErrorKind::Interrupted, "disconnected"))
-            }
-        }
-    }
-
-    fn disconnected(&mut self) {
-        crate::debug!("disconnected",);
-        self.channel.forget(self.client_id);
-        self.state = RdpStreamState::Disconnected;
-    }
-
-    fn disconnect(&mut self) {
-        match &self.state {
-            RdpStreamState::Ready => {
-                self.disconnected();
-            }
-            RdpStreamState::Connected => {
-                crate::debug!("disconnecting",);
-                let _ = self.channel.send_chunk(api::Chunk::end(self.client_id));
-                self.disconnected();
-            }
-            RdpStreamState::Disconnected => (),
-        }
-    }
-}
-
-impl Drop for RdpStreamCommon<'_> {
-    fn drop(&mut self) {
-        self.disconnect();
-    }
-}
-
-#[derive(Clone)]
-struct RdpStreamControl<'a>(sync::Arc<sync::RwLock<RdpStreamCommon<'a>>>);
-
-impl<'a> RdpStreamControl<'a> {
+impl<'a> Handle<'a> {
     fn new(
         channel: &'a channel::Channel,
         service: &'a service::Service,
         client_id: api::ClientId,
+        from_rdp: crossbeam_channel::Receiver<api::Chunk>,
     ) -> Self {
-        Self(sync::Arc::new(sync::RwLock::new(RdpStreamCommon {
+        Self {
             channel,
             service,
             client_id,
-            state: RdpStreamState::Ready,
-        })))
+            state: sync::Arc::new(sync::RwLock::new(State::ReadWrite(from_rdp))),
+        }
     }
 
-    fn client_id(&self) -> api::ClientId {
-        self.0.read().unwrap().client_id
+    fn send(&self, chunk: api::Chunk) -> Result<(), api::Error> {
+        self.state.read().unwrap().will_send()?;
+
+        let is_end = matches!(chunk.chunk_type()?, api::ChunkType::End);
+
+        crate::trace!("RDP send {chunk}");
+
+        self.channel.send_chunk(chunk)?;
+
+        if is_end {
+            crate::debug!("RDP send End for {:x}", self.client_id);
+
+            let mut state = self.state.write().unwrap();
+            match &mut *state {
+                State::ReadWrite(from_rdp) => {
+                    *state = State::ReadOnly(from_rdp.clone());
+                }
+                State::WriteOnly => {
+                    *state = State::Closed;
+                }
+                State::ReadOnly(_) | State::Closed => (),
+            }
+        }
+
+        Ok(())
     }
 
-    fn is_connected(&self) -> bool {
-        self.0.read().unwrap().state.is_connected()
+    fn receive(&self) -> Result<api::Chunk, api::Error> {
+        let chunk = self.state.read().unwrap().will_receive()?.recv()?;
+
+        crate::trace!("RDP receive {chunk}");
+
+        let chunk_type = chunk.chunk_type()?;
+
+        if matches!(chunk_type, api::ChunkType::End) {
+            crate::debug!("RDP received End for {:x}", self.client_id);
+            let mut state = self.state.write().unwrap();
+            match &mut *state {
+                State::ReadWrite(_) => {
+                    *state = State::WriteOnly;
+                }
+                State::ReadOnly(_) => {
+                    *state = State::Closed;
+                }
+                State::WriteOnly | State::Closed => (),
+            }
+        }
+
+        Ok(chunk)
     }
 
-    #[cfg(feature = "backend")]
-    fn accept(&self) -> Result<(), io::Error> {
-        self.0.write().unwrap().accept()
-    }
+    fn close(&'a self, mode: net::Shutdown) {
+        let mut state = self.state.write().unwrap();
+        let mut send_end = false;
+        match mode {
+            net::Shutdown::Both => {
+                match &mut *state {
+                    State::ReadWrite(_) | State::WriteOnly => {
+                        send_end = true;
+                    }
+                    State::ReadOnly(_) | State::Closed => {}
+                }
+                *state = State::Closed;
+            }
+            net::Shutdown::Read => match &mut *state {
+                State::ReadWrite(_) => {
+                    *state = State::WriteOnly;
+                }
+                State::ReadOnly(_) => {
+                    *state = State::Closed;
+                }
+                State::WriteOnly | State::Closed => {}
+            },
+            net::Shutdown::Write => match &mut *state {
+                State::ReadWrite(from_rdp) => {
+                    send_end = true;
+                    *state = State::ReadOnly(from_rdp.clone());
+                }
+                State::ReadOnly(_) => {
+                    send_end = true;
+                    *state = State::Closed;
+                }
+                State::WriteOnly | State::Closed => {}
+            },
+        }
 
-    #[cfg(feature = "frontend")]
-    fn connect(&self) -> Result<(), io::Error> {
-        self.0.write().unwrap().connect()
+        if send_end {
+            let _ = self.channel.send_chunk(api::Chunk::end(self.client_id));
+        }
     }
+}
 
-    fn send_chunk(&self, chunk: api::Chunk) -> Result<(), io::Error> {
-        self.0
-            .write()
-            .unwrap()
-            .channel
-            .send_chunk(chunk)
-            .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e.to_string()))
-    }
-
-    fn disconnected(&self) {
-        self.0.write().unwrap().disconnected();
-    }
-
-    fn disconnect(&self) {
-        self.0.write().unwrap().disconnect();
+impl Drop for Handle<'_> {
+    fn drop(&mut self) {
+        crate::trace!("!! DROP RDP handle");
+        self.close(net::Shutdown::Both);
     }
 }
 
 pub struct RdpStream<'a> {
+    handle: sync::Arc<Handle<'a>>,
     reader: RdpReader<'a>,
     writer: RdpWriter<'a>,
-    control: RdpStreamControl<'a>,
 }
 
 impl<'a> RdpStream<'a> {
@@ -157,36 +180,34 @@ impl<'a> RdpStream<'a> {
         client_id: api::ClientId,
         from_rdp: crossbeam_channel::Receiver<api::Chunk>,
     ) -> Self {
-        let control = RdpStreamControl::new(channel, service, client_id);
-
-        let reader = RdpReader::new(control.clone(), from_rdp);
-        let writer = RdpWriter::new(control.clone());
-
+        let handle = sync::Arc::new(Handle::new(channel, service, client_id, from_rdp));
+        let reader = RdpReader::new(handle.clone());
+        let writer = RdpWriter::new(handle.clone());
         Self {
+            handle,
             reader,
             writer,
-            control,
         }
     }
 
     pub(crate) fn client_id(&self) -> api::ClientId {
-        self.control.client_id()
+        self.handle.client_id
     }
 
     #[cfg(feature = "backend")]
-    pub(crate) fn accept(&self) -> Result<(), io::Error> {
-        self.control.accept()
+    pub(crate) fn accept(&self) {
+        crate::trace!(
+            "accepted {} 0x{:x}",
+            self.handle.service,
+            self.handle.client_id
+        );
     }
 
     #[cfg(feature = "frontend")]
     pub(crate) fn connect(&self) -> Result<(), io::Error> {
-        self.control.connect()
-    }
-
-    pub(crate) fn disconnect(&mut self) -> Result<(), io::Error> {
-        self.writer.flush()?;
-        self.control.disconnect();
-        Ok(())
+        self.handle
+            .send(api::Chunk::start(self.client_id(), self.handle.service)?)
+            .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e.to_string()))
     }
 
     pub(crate) fn split(self) -> (RdpReader<'a>, RdpWriter<'a>) {
@@ -210,66 +231,54 @@ impl io::Write for RdpStream<'_> {
     }
 }
 
-pub(crate) struct RdpReader<'a> {
-    control: RdpStreamControl<'a>,
-    from_rdp: crossbeam_channel::Receiver<api::Chunk>,
-    last: Option<(api::Chunk, usize)>,
+pub struct RdpReader<'a> {
+    handle: sync::Arc<Handle<'a>>,
+    read_pending: Option<(api::Chunk, usize)>,
 }
 
 impl<'a> RdpReader<'a> {
-    const fn new(
-        control: RdpStreamControl<'a>,
-        from_rdp: crossbeam_channel::Receiver<api::Chunk>,
-    ) -> Self {
+    fn new(handle: sync::Arc<Handle<'a>>) -> Self {
         Self {
-            control,
-            from_rdp,
-            last: None,
+            handle,
+            read_pending: None,
         }
     }
+}
 
-    pub(crate) fn disconnect(&self) {
-        self.control.disconnect();
+impl Drop for RdpReader<'_> {
+    fn drop(&mut self) {
+        crate::trace!("!! DROP RDP reader");
+        self.handle.close(net::Shutdown::Read);
     }
 }
 
 impl io::Read for RdpReader<'_> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
-        if !self.control.is_connected() {
-            return Err(io::Error::new(io::ErrorKind::BrokenPipe, "ended"));
-        }
+        let buf_len = buf.len();
 
-        if self.last.is_none() {
+        if self.read_pending.is_none() {
             let chunk = self
-                .from_rdp
-                .recv()
-                .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))?;
-            let chunk_type = chunk.chunk_type();
+                .handle
+                .receive()
+                .map_err(|e| io::Error::new(io::ErrorKind::ConnectionAborted, e.to_string()))?;
             let payload = chunk.payload();
             let payload_len = payload.len();
-            if matches!(chunk_type, Ok(api::ChunkType::End)) {
-                self.control.disconnected();
-                return Ok(0);
-            }
+
             if payload_len == 0 {
                 return Ok(0);
             }
-            if payload_len <= buf.len() {
-                buf[0..payload_len].copy_from_slice(payload);
-                return Ok(payload_len);
-            }
-            self.last = Some((chunk, 0));
+
+            self.read_pending = Some((chunk, 0));
         }
 
-        let (last, last_offset) = self.last.as_mut().unwrap();
+        let (last, last_offset) = self.read_pending.as_mut().unwrap();
         let last_payload = last.payload();
         let last_payload_len = last_payload.len();
         let last_len = last_payload_len - *last_offset;
-        let buf_len = buf.len();
 
         if last_len <= buf_len {
-            buf[0..last_len].copy_from_slice(&last_payload[*last_offset..]);
-            self.last = None;
+            buf[..last_len].copy_from_slice(&last_payload[*last_offset..]);
+            self.read_pending = None;
             return Ok(last_len);
         }
 
@@ -281,80 +290,90 @@ impl io::Read for RdpReader<'_> {
 }
 
 #[derive(Clone)]
-pub(crate) struct RdpWriter<'a> {
-    control: RdpStreamControl<'a>,
-    buffer: [u8; api::Chunk::max_payload_length()],
-    buffer_len: usize,
+pub struct RdpWriter<'a> {
+    handle: sync::Arc<Handle<'a>>,
+    write_pending: Vec<u8>,
 }
 
 impl<'a> RdpWriter<'a> {
-    const fn new(control: RdpStreamControl<'a>) -> Self {
+    fn new(handle: sync::Arc<Handle<'a>>) -> Self {
         Self {
-            control,
-            buffer: [0u8; api::Chunk::max_payload_length()],
-            buffer_len: 0,
+            handle,
+            write_pending: Vec::with_capacity(api::Chunk::max_payload_length()),
         }
-    }
-
-    pub(crate) fn disconnect(&mut self) -> Result<(), io::Error> {
-        self.flush()?;
-        self.control.disconnect();
-        Ok(())
     }
 }
 
 impl Drop for RdpWriter<'_> {
     fn drop(&mut self) {
+        crate::trace!("!! DROP RDP writer");
         let _ = self.flush();
-        let _ = self.buffer;
-        let _ = self.control;
+        self.handle.close(net::Shutdown::Write);
     }
 }
 
 impl io::Write for RdpWriter<'_> {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
-        if !self.control.is_connected() {
-            return Err(io::Error::new(io::ErrorKind::BrokenPipe, "ended"));
-        }
+    fn write(&mut self, mut buf: &[u8]) -> Result<usize, io::Error> {
+        crate::trace!("RDP write {} bytes", buf.len());
 
-        let buf_len = buf.len();
-        let remaining_len = self.buffer.len() - self.buffer_len;
+        let mut written = 0;
 
-        if buf_len <= remaining_len {
-            self.buffer[self.buffer_len..(self.buffer_len + buf_len)].copy_from_slice(buf);
-            self.buffer_len += buf_len;
-            if self.buffer.len() == self.buffer_len {
-                self.flush()?;
-            }
-            Ok(buf_len)
-        } else {
-            self.buffer[self.buffer_len..].copy_from_slice(&buf[0..remaining_len]);
-            self.buffer_len += remaining_len;
+        if !self.write_pending.is_empty() {
+            let buf_len = buf.len();
+            let prev_len = self.write_pending.len();
+            let remaining_len = self.write_pending.capacity() - prev_len;
+            let can_write = usize::min(buf_len, remaining_len);
 
-            self.flush()?;
+            self.write_pending.extend_from_slice(&buf[0..can_write]);
 
-            if remaining_len < buf_len {
-                let len = usize::min(buf_len - remaining_len, self.buffer.len());
-                self.buffer[0..len].copy_from_slice(&buf[remaining_len..(remaining_len + len)]);
-                self.buffer_len = len;
-                Ok(remaining_len + len)
-            } else {
-                Ok(remaining_len)
+            match can_write.cmp(&remaining_len) {
+                cmp::Ordering::Less => {
+                    return Ok(can_write);
+                }
+                cmp::Ordering::Equal => {
+                    self.flush()?;
+                    return Ok(can_write);
+                }
+                cmp::Ordering::Greater => {
+                    self.flush()?;
+                    written = can_write;
+                    buf = &buf[can_write..];
+                }
             }
         }
+
+        buf[written..]
+            .chunks(api::Chunk::max_payload_length())
+            .flat_map(|buf| api::Chunk::data(self.handle.client_id, buf))
+            .try_fold(written, |written, chunk| {
+                let chunk_len = chunk.payload().len();
+
+                if chunk_len < self.write_pending.capacity() {
+                    // last chunk
+                    self.write_pending.extend_from_slice(chunk.payload());
+                    Ok(written + chunk_len)
+                } else {
+                    // chunk is expected size
+                    self.handle.send(chunk).map_err(|e| {
+                        io::Error::new(io::ErrorKind::ConnectionAborted, e.to_string())
+                    })?;
+                    Ok(written + chunk_len)
+                }
+            })
     }
 
     fn flush(&mut self) -> Result<(), io::Error> {
-        if 0 < self.buffer_len {
-            let chunk =
-                api::Chunk::data(self.control.client_id(), &self.buffer[0..self.buffer_len])?;
-            self.buffer_len = 0;
+        crate::trace!("RDP flush {} bytes", self.write_pending.len());
 
-            if let Err(e) = self.control.send_chunk(chunk) {
-                self.control.disconnected();
-                return Err(io::Error::new(io::ErrorKind::BrokenPipe, e));
-            }
+        if !self.write_pending.is_empty() {
+            let chunk = api::Chunk::data(self.handle.client_id, &self.write_pending)?;
+            self.write_pending.clear();
+
+            self.handle
+                .send(chunk)
+                .map_err(|e| io::Error::new(io::ErrorKind::ConnectionAborted, e.to_string()))?;
         }
+
         Ok(())
     }
 }

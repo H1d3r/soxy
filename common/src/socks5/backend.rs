@@ -12,11 +12,11 @@ fn encode_addr(addr: &net::SocketAddr) -> Result<Vec<u8>, io::Error> {
 
     match addr {
         net::SocketAddr::V4(ipv4) => {
-            data.write_all(&[0x01; 1])?;
+            data.write_all(&[1u8; 1])?;
             data.write_all(&ipv4.ip().octets())?;
         }
         net::SocketAddr::V6(ipv6) => {
-            data.write_all(&[0x04; 1])?;
+            data.write_all(&[4u8; 1])?;
             data.write_all(&ipv6.ip().octets())?;
         }
     }

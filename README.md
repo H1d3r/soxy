@@ -70,6 +70,9 @@ The soxy source code is split into four parts:
   local network, depending on the configuration) for each service;
 - **backend**: contains the code of the Windows executable
   (or DLL) to be launched (or loaded) on the remote Windows machine;
+- **soxyreg**: contains the code to produce an executable that
+  simplifies the (un)installation of the `frontend` on Windows by
+  inserting/deleting the appropriate registry keys;
 - **standalone**: contains the code to produce an executable including both the
   `frontend` and the `backend` parts (with an emulated RDP channel) for testing
   implementations of services;
@@ -77,6 +80,7 @@ The soxy source code is split into four parts:
 
 All communications between the `frontend` and the `backend` go through
 a single [Static Virtual Channel](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpbcgr/343e4888-4c48-4054-b0e3-4e0762d1993c)
+or a single [Dynamic Virtual Channel](https://learn.microsoft.com/en-us/windows/win32/termserv/dynamic-virtual-channels)
 of the RDP protocol. A single FIFO is used to transmit from/to the `frontend`
 to/from `backend`, which means that there is no priority levels between services
 within soxy.
@@ -116,12 +120,21 @@ The following elements are required to build them:
 
 ##### Included services
 
+By default both Static and Dynamic Virtual Channels are supported and
+enabled in the ̀`Makefile`. It is possible to build `soxy` with the
+support of a Static/Dynamic Virtual Channel only by editing
+the `VC` variable at the beginning of the `Makefile`.
+
+```Makefile
+VC ?= dvc svc
+```
+
 By default all services are enabled in the `Makefile`. It is possible
-to include only services needed by editing the `SERVICES`
+to include services needed only by editing the `SERVICES`
 variable at the beginning of the `Makefile`.
 
 ```Makefile
-SERVICES ?= clipboard command ftp socks5 stage0
+SERVICES ?= clipboard command ftp input socks5 stage0
 ```
 
 ##### Make Targets
@@ -134,12 +147,13 @@ by editing the three following variables at the beginning of the `Makefile`.
 TARGETS_FRONTEND ?= i686-pc-windows-gnu x86_64-pc-windows-gnu i686-unknown-linux-gnu x86_64-unknown-linux-gnu
 TARGETS_BACKEND ?= i686-pc-windows-gnu x86_64-pc-windows-gnu i686-unknown-linux-gnu x86_64-unknown-linux-gnu
 TARGETS_STANDALONE ?= i686-pc-windows-gnu x86_64-pc-windows-gnu i686-unknown-linux-gnu x86_64-unknown-linux-gnu
+TARGETS_SOXYREG ?= i686-pc-windows-gnu x86_64-pc-windows-gnu
 ```
 
-It is also possible to override the default enabled platforms from the command line, e.g.:
+It is also possible to override all default enabled parameters from the command line, e.g.:
 
 ```bash
-TARGETS_FRONTEND=x86_64-unknown-linux-gnu TARGETS_BACKEND=x86_64-pc-windows-gnu TARGETS_STANDALONE= make debug
+VC=dvc SERVICES=socks5 TARGETS_FRONTEND=x86_64-unknown-linux-gnu TARGETS_BACKEND=x86_64-pc-windows-gnu TARGETS_STANDALONE= TARGETS_SOXYREG=x86_64-pc-windows-gnu make debug
 ```
 
 The `Makefile` contains three main targets:
@@ -178,6 +192,11 @@ The output hierarchy of the created repositories is the following:
 │   │   └── soxy.dll
 │   └── x86_64-unknown-linux-gnu
 │       └── libsoxy.so
+└── soxyreg
+│   ├── i686-pc-windows-gnu
+│   │   └── soxyreg.exe
+│   ├── x86_64-pc-windows-gnu
+│       └── soxyreg.exe
 └── standalone
     ├── i686-pc-windows-gnu
     │   └── soxy_standalone.exe
@@ -212,7 +231,7 @@ installable as described in the next section.
 
 ### 🔌 Frontend Installation
 
-#### For VMware Horizon Client
+#### For VMware Horizon Client and Windows native RDP client
 
 ##### On macOS
 
@@ -231,17 +250,36 @@ to `/usr/lib/omnissa/rdpvcbridge/`.
 
 ##### On Windows
 
-Register the `frontend` library for automatic loading by VMware Horizon client:
+Register the `frontend` library for automatic loading by VMware
+Horizon client. It is mandatory to use the same architecture version
+(*i.e.* 32/64 bit version from
+`i686-pc-windows-gnu`/x86_64-pc-windows-gnu) of `soxyreg.exe` than for
+`soxy.dll`?
+
+To use a Static Virtual Channel:
 
 ```bash
-regsvr32.exe soxy.dll
+soxyreg.exe svc register soxy.dll
 ```
 
-To uninstall:
+(x)or to use a Dynamic Virtual Channel:
 
 ```bash
-regsvr32.exe /u soxy.dll
+soxyreg.exe dvc register soxy.dll
 ```
+
+To uninstall the Static Virtual Channel:
+
+```bash
+soxyreg.exe svc unregister
+```
+
+(x)or to uninstall the Dynamic Virtual Channel:
+
+```bash
+soxyreg.exe dvc unregister
+```
+
 
 #### For FreeRDP and Remmina (Linux)
 
@@ -278,21 +316,35 @@ the library will not be found by FreeRDP/Remmina:
   ```
 
 When you launch FreeRDP from the command line, you have to add the argument
-`/vc:soxy` to tell FreeRDP to load the library, for example:
+`/vc:soxy` to tell FreeRDP to load the library and to use a Static Virtual Channel,
+(x)or `/dvc:soxy` to use a Dynamic Virtual Channel, for example:
 
-* for FreeRDP 2:
+* for FreeRDP 2 with a Static Virtual Channel:
 
   ```bash
-  xfreerdp /dynamic-resolution /log-level:INFO /u:User /v:192.168.42.42 /vc:soxy
+  xfreerdp /dynamic-resolution /log-level:INFO /v:192.168.42.42 /vc:soxy
   ```
-* for FreeRDP 3:
+
+or with Dynamic Virtual Channel:
 
   ```bash
-  sdl-freerdp3 /dynamic-resolution /log-level:INFO /u:User /v:192.168.42.42 /vc:soxy
+  xfreerdp /dynamic-resolution /log-level:INFO /v:192.168.42.42 /dvc:soxy
+  ```
+
+* for FreeRDP 3 with a Static Virtual Channel:
+
+  ```bash
+  sdl-freerdp3 /dynamic-resolution /log-level:INFO /v:192.168.42.42 /vc:soxy
+  ```
+
+or with Dynamic Virtual Channel:
+
+  ```bash
+  sdl-freerdp3 /dynamic-resolution /log-level:INFO /v:192.168.42.42 /dvc:soxy
   ```
 
 For Remmina, edit your RDP connection, go to the "Advanced" tab and set the
-"Static virtual channel" parameter to `soxy`.
+"Static virtual channel" (x)or "Dynamic virtual channel" parameter to `soxy`.
 
 #### For Citrix Workspace App
 
@@ -310,22 +362,41 @@ First copy `libsoxy.so` to `/opt/Citrix/ICAClient/`, then modify
 - add a `[soxy]` section containing the following line:
   - `DriverName = libsoxy.so`
 
+Be careful, **only Static Virtual Channels** are supported in the Citrix
+Linux client.
+
 ##### On Windows
 
-First copy the **32 bits version** of `soxy.dll` from `i686-pc-windows-gnu` to
-`C:\Program Files (x86)\Citrix\ICA Client`, then register it for automatic
-loading by Citrix Workspace App; you need to run the command with administrator
-privileges:
+First **you must copy** the **32 bits version** of `soxy.dll` from
+`i686-pc-windows-gnu` to `C:\Program Files (x86)\Citrix\ICA Client`,
+then register it with the **32 bits version** of `soxyreg` for
+automatic loading by Citrix Workspace App; you need to run the command
+with administrator privileges.
+
+To use a Static Virtual Channel:
 
 ```bash
-regsvr32.exe soxy.dll
+i686-pc-windows-gnu\soxyreg.exe svc register soxy.dll
 ```
 
-To uninstall:
+(x)or to use a Dynamic Virtual Channel:
 
 ```bash
-regsvr32.exe /u soxy.dll
+i686-pc-windows-gnu\soxyreg.exe dvc register soxy.dll
 ```
+
+To uninstall the Static Virtual Channel:
+
+```bash
+i686-pc-windows-gnu\soxyreg.exe svc unregister
+```
+
+and to uninstall the Dynamic Virtual Channel:
+
+```bash
+i686-pc-windows-gnu\soxyreg.exe dvc unregister
+```
+
 
 #### Configuration file
 
@@ -336,11 +407,14 @@ found, it will be created with default values. Here is a complete
 example of configuration file:
 
 ```toml
+#Default virtual channel name.
+channel = "SOXY"
+
 #Default listen address for services. It can be overridden per service.
 #Use "::1" to listen both on IPv4 and IPv6 on localhost.
 #Use "::0" to listen both on IPv4 and IPv6 on all interfaces.
-#Default value is "::1".
-ip = "::1"
+#Default value is "127.0.0.1".
+ip = "127.0.0.1"
 
 [log]
 #Logging level: "OFF" or "ERROR" or "WARN" or "INFO" or "DEBUG" or "TRACE".
@@ -389,15 +463,24 @@ port = 1082
 
 #### Using `soxy.exe`
 
-Copy `release/x86_64-pc-windows-gnu/soxy.exe` to the machine you are connected
-to and execute it.
+Copy `release/x86_64-pc-windows-gnu/soxy.exe` to the Windows machine
+you are connected to and execute it. On a Linux remote machine, use
+`release/x86_64-unknown-linux-gnu/soxy`. You can override the default
+virtual channel name (*i.e.* `SOXY`) by giving it as first and single
+argument on the command line, e.g.:
 
-#### (Alternative) Using the DLL
+```bash
+soxy.exe MYCHAN
+```
 
-Copy `release/x86_64-pc-windows-gnu/soxy.dll` (or `release/i686-pc-windows-gnu/soxy.dll`
-depending on the Windows architecture) and _find your way to load the DLL_.
-For example, this can be done thanks to `rundll32.exe` present on Windows
-with the following command:
+The virtual channel name is at most 7 ASCII characters.
+
+#### (Alternative) Using the DLL/.so
+
+Copy `release/x86_64-pc-windows-gnu/soxy.dll` and _find your way to
+load the DLL_. For example, this can be done
+thanks to `rundll32.exe` present on Windows with the following
+command:
 
 ```bash
 rundll32.exe soxy.dll,Main
@@ -409,7 +492,6 @@ threads launched at loading time by the `DllMain` function present in the DLL.
 If the DLL is loaded by a real binary/application, soxy will remain active until
 the binary/application exits; you do not have to execute anything in the
 library, everything will be done automatically at loading time.
-
 
 
 ## 💻 Usage
@@ -500,7 +582,7 @@ and use the available commands:
 ### Citrix
 
 If you get an error like `failed to open channel handle: virtual channel open failed (last_error = 5)`
-it means there are restrictions on citrix host virtual channels (default behavior
+it means there are restrictions on Citrix host virtual channels (default behavior
 in last Citrix version). To fix this, if you have (local) administrator privileges,
 you can disable Citrix restrictions on virtual channels (which is not recommended):
 
@@ -508,7 +590,8 @@ you can disable Citrix restrictions on virtual channels (which is not recommende
 reg add HKLM\SOFTWARE\WOW6432Node\Policies\Citrix\VCPolicies /v VirtualChannelWhiteList /t REG_MULTI_SZ /d =disabled=
 ```
 
-Or you can whitelist `SOXY` like this if you have (local) administrator privileges:
+Or you can whitelist `SOXY` (or your custom virtual channel name) like
+this if you have (local) administrator privileges:
 
 ```powershell
 reg add HKLM\SOFTWARE\WOW6432Node\Policies\Citrix\VCPolicies /v VirtualChannelWhiteList /t REG_MULTI_SZ /d SOXY,C:\Users\<USER>\<PATH_TO_SOXY_EXE>

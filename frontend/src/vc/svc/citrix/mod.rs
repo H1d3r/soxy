@@ -3,36 +3,16 @@
 #![allow(clippy::cast_possible_wrap)]
 #![allow(non_snake_case)]
 
+#[cfg(feature = "service-input")]
 use crate::client;
+use crate::{control, vc};
 use common::api;
-use std::{ffi, fmt, mem, ptr, slice, sync};
+use std::{ffi, mem, ops::Deref, ptr, slice, sync};
 
 mod headers;
 mod vd;
 
-pub enum Error {
-    NullPointers,
-    InvalidMaximumWriteSize(u16),
-    NotReady,
-    Disconnected,
-    VirtualChannel(i32),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match self {
-            Self::NullPointers => write!(f, "null pointers"),
-            Self::InvalidMaximumWriteSize(s) => write!(f, "invalid maximum write is: {s}"),
-            Self::NotReady => write!(f, "not ready"),
-            Self::Disconnected => write!(f, "disconnected"),
-            Self::VirtualChannel(e) => write!(f, "virtual channel error: {e}"),
-        }
-    }
-}
-
-static HANDLE: sync::RwLock<Option<Handle>> = sync::RwLock::new(None);
-
-struct Handle {
+struct ShadowHandle {
     pwd_data: headers::PWD,
     channel_num: headers::USHORT,
     queue_virtual_write: unsafe extern "C" fn(
@@ -43,53 +23,35 @@ struct Handle {
         headers::USHORT,
     ) -> ffi::c_int,
     write_last_miss: sync::RwLock<Option<Vec<u8>>>,
-    write_queue_send: crossbeam_channel::Sender<Vec<u8>>,
     write_queue_receive: crossbeam_channel::Receiver<Vec<u8>>,
 }
 
-unsafe impl Send for Handle {}
-unsafe impl Sync for Handle {}
+unsafe impl Send for ShadowHandle {}
+unsafe impl Sync for ShadowHandle {}
 
-impl Handle {
-    fn new(
-        pwd_data: headers::PWD,
-        channel_num: headers::USHORT,
-        queue_virtual_write: unsafe extern "C" fn(
-            headers::LPVOID,
-            headers::USHORT,
-            headers::LPMEMORY_SECTION,
-            headers::USHORT,
-            headers::USHORT,
-        ) -> ffi::c_int,
-    ) -> Self {
-        let (write_queue_send, write_queue_receive) =
-            crossbeam_channel::bounded(super::MAX_CHUNKS_IN_FLIGHT);
-        Self {
-            pwd_data,
-            channel_num,
-            queue_virtual_write,
-            write_last_miss: sync::RwLock::new(None),
-            write_queue_send,
-            write_queue_receive,
+static SHADOW_HANDLE: sync::RwLock<Option<ShadowHandle>> = sync::RwLock::new(None);
+
+fn DriverOpen(vd: &mut headers::VD, vd_open: &mut headers::VDOPEN) -> Result<(), ffi::c_int> {
+    let name = match crate::CONFIG.get() {
+        None => {
+            common::error!("no config loaded!");
+            return Err(1);
         }
-    }
+        Some(config) => {
+            common::info!("SVC(Citrix) virtual channel name is {:?}", config.channel);
 
-    fn queue(&self, data: Vec<u8>) {
-        self.write_queue_send.send(data).ok();
-    }
-}
-
-pub fn DriverOpen(vd: &mut headers::VD, vd_open: &mut headers::VDOPEN) -> Result<(), ffi::c_int> {
-    let mut handle = HANDLE.write().unwrap();
-
-    if handle.is_some() {
-        return Ok(());
-    }
+            match common::virtual_channel_name(&config.channel) {
+                Err(e) => {
+                    common::error!("{e}");
+                    return Err(1);
+                }
+                Ok(name) => name,
+            }
+        }
+    };
 
     let mut wdovc = headers::OPENVIRTUALCHANNEL {
-        pVCName: ptr::from_ref(common::VIRTUAL_CHANNEL_NAME)
-            .cast_mut()
-            .cast(),
+        pVCName: name.as_ptr().cast_mut().cast(),
         ..Default::default()
     };
 
@@ -128,33 +90,53 @@ pub fn DriverOpen(vd: &mut headers::VD, vd_open: &mut headers::VDOPEN) -> Result
 
     common::debug!("maximum_write_size = {}", vdwh.MaximumWriteSize);
 
-    if usize::from(vdwh.MaximumWriteSize) < (api::CHUNK_LENGTH - 1) {
+    if usize::from(vdwh.MaximumWriteSize) < (api::PDU_DATA_MAX_SIZE - 1) {
         return Err(headers::CLIENT_ERROR_BUFFER_TOO_SMALL);
     }
 
-    unsafe { vdwh.__bindgen_anon_2.pQueueVirtualWriteProc.as_ref() }.map_or(
-        Err(headers::CLIENT_ERROR_NULL_MEM_POINTER),
-        |queue_virtual_write| {
-            let _ = handle.replace(Handle::new(
-                vdwh.pWdData.cast(),
-                wdovc.Channel,
-                *queue_virtual_write,
-            ));
-            Ok(())
-        },
-    )
-}
+    let (handle, shadow) = unsafe { vdwh.__bindgen_anon_2.pQueueVirtualWriteProc.as_ref() }
+        .map_or(
+            Err(headers::CLIENT_ERROR_NULL_MEM_POINTER),
+            |queue_virtual_write| {
+                Ok(Handle::new(
+                    vdwh.pWdData.cast(),
+                    wdovc.Channel,
+                    *queue_virtual_write,
+                ))
+            },
+        )?;
 
-#[allow(clippy::unnecessary_wraps)]
-pub fn DriverClose(
-    _vd: &mut headers::VD,
-    _dll_close: &mut headers::DLLCLOSE,
-) -> Result<(), ffi::c_int> {
-    let _ = HANDLE.write().unwrap().take();
+    let handle = super::Handle::Citrix(handle);
+    let handle = vc::GenericHandle::Static(handle);
+
+    SHADOW_HANDLE.write().unwrap().replace(shadow);
+
+    crate::CONTROL
+        .deref()
+        .channel_connector()
+        .send(control::FromVc::Opened(handle))
+        .expect("internal error: failed to send control message");
+
     Ok(())
 }
 
-pub fn DriverInfo(vd: &headers::VD, dll_info: &mut headers::DLLINFO) -> Result<(), ffi::c_int> {
+#[allow(clippy::unnecessary_wraps)]
+fn DriverClose(
+    _vd: &mut headers::VD,
+    _dll_close: &mut headers::DLLCLOSE,
+) -> Result<(), ffi::c_int> {
+    let _ = SHADOW_HANDLE.write().unwrap().take();
+
+    crate::CONTROL
+        .deref()
+        .channel_connector()
+        .send(control::FromVc::Closed)
+        .expect("internal error: failed to send control message");
+
+    Ok(())
+}
+
+fn DriverInfo(vd: &headers::VD, dll_info: &mut headers::DLLINFO) -> Result<(), ffi::c_int> {
     let byte_count = u16::try_from(mem::size_of::<headers::VD_C2H>()).expect("value too large");
 
     if dll_info.ByteCount < byte_count {
@@ -165,41 +147,44 @@ pub fn DriverInfo(vd: &headers::VD, dll_info: &mut headers::DLLINFO) -> Result<(
 
     let soxy_c2h = dll_info.pBuffer.cast::<headers::SOXY_C2H>();
 
-    match unsafe { soxy_c2h.as_mut() } {
+    let soxy_c2h = unsafe { soxy_c2h.as_mut() }
+        .ok_or(headers::CLIENT_ERROR)
+        .inspect_err(|_| common::error!("pBuffer is null!"))?;
+
+    let vd_c2h = &mut soxy_c2h.Header;
+
+    vd_c2h.ChannelMask = vd.ChannelMask;
+
+    let module_c2h = &mut vd_c2h.Header;
+    module_c2h.ByteCount = byte_count;
+    module_c2h.ModuleClass =
+        u8::try_from(headers::_MODULECLASS_Module_VirtualDriver).expect("value too large");
+    module_c2h.VersionL = 1;
+    module_c2h.VersionH = 1;
+
+    let name = match crate::CONFIG.get() {
         None => {
-            common::error!("pBuffer is null!");
-            Err(headers::CLIENT_ERROR)
+            common::error!("no config loaded!");
+            return Err(1);
         }
-        Some(soxy_c2h) => {
-            let vd_c2h = &mut soxy_c2h.Header;
-
-            vd_c2h.ChannelMask = vd.ChannelMask;
-
-            let module_c2h = &mut vd_c2h.Header;
-            module_c2h.ByteCount = byte_count;
-            module_c2h.ModuleClass =
-                u8::try_from(headers::_MODULECLASS_Module_VirtualDriver).expect("value too large");
-            module_c2h.VersionL = 1;
-            module_c2h.VersionH = 1;
-
-            for (i, b) in common::VIRTUAL_CHANNEL_NAME
-                .to_bytes_with_nul()
-                .iter()
-                .enumerate()
-            {
-                module_c2h.HostModuleName[i] = *b;
+        Some(config) => match common::virtual_channel_name(&config.channel) {
+            Err(e) => {
+                common::error!("{e}");
+                return Err(1);
             }
+            Ok(name) => name,
+        },
+    };
 
-            let flow = &mut vd_c2h.Flow;
-            flow.BandwidthQuota = 0;
-            flow.Flow =
-                u8::try_from(headers::_VIRTUALFLOWCLASS_VirtualFlow_None).expect("value too large");
+    module_c2h.HostModuleName[..name.len()].copy_from_slice(&name);
 
-            dll_info.ByteCount = byte_count;
+    let flow = &mut vd_c2h.Flow;
+    flow.BandwidthQuota = 0;
+    flow.Flow = u8::try_from(headers::_VIRTUALFLOWCLASS_VirtualFlow_None).expect("value too large");
 
-            Ok(())
-        }
-    }
+    dll_info.ByteCount = byte_count;
+
+    Ok(())
 }
 
 // To avoid saturating completely the Citrix queue (which is
@@ -207,11 +192,8 @@ pub fn DriverInfo(vd: &headers::VD, dll_info: &mut headers::DLLINFO) -> Result<(
 // send at most MAX_CHUNK_BATCH_SEND chunks per poll request
 const MAX_CHUNK_BATCH_SEND: usize = 8;
 
-pub fn DriverPoll(
-    _vd: &mut headers::VD,
-    _dll_poll: &mut headers::DLLPOLL,
-) -> Result<(), ffi::c_int> {
-    let binding = HANDLE.read().unwrap();
+fn DriverPoll(_vd: &mut headers::VD, _dll_poll: &mut headers::DLLPOLL) -> Result<(), ffi::c_int> {
+    let binding = SHADOW_HANDLE.read().unwrap();
     let handle = binding.as_ref().ok_or(headers::CLIENT_ERROR)?;
 
     let mut mem = headers::MEMORY_SECTION::default();
@@ -274,7 +256,7 @@ pub fn DriverPoll(
     }
 }
 
-pub fn DriverQueryInformation(
+fn DriverQueryInformation(
     _vd: &mut headers::VD,
     _vd_query_info: &mut headers::VDQUERYINFORMATION,
 ) -> Result<(), ffi::c_int> {
@@ -282,7 +264,7 @@ pub fn DriverQueryInformation(
 }
 
 #[allow(clippy::unnecessary_wraps)]
-pub fn DriverSetInformation(
+fn DriverSetInformation(
     _vd: &mut headers::VD,
     _vd_set_info: &mut headers::VDSETINFORMATION,
 ) -> Result<(), ffi::c_int> {
@@ -290,7 +272,7 @@ pub fn DriverSetInformation(
 }
 
 /*
-pub fn DriverGetLastError(
+fn DriverGetLastError(
     _vd: &mut headers::VD,
     _vd_last_error: &mut headers::VDLASTERROR,
 ) -> Result<(), ffi::c_int> {
@@ -306,24 +288,24 @@ extern "C" fn ICADataArrival(
 ) -> ffi::c_int {
     common::trace!("ICADataArrival");
 
-    if let Some(from_rdp) = crate::SVC_TO_CONTROL.get() {
-        assert!(
-            Length as usize
-                <= (api::Chunk::serialized_overhead() + api::Chunk::max_payload_length())
-        );
+    assert!(
+        Length as usize <= (api::Chunk::serialized_overhead() + api::Chunk::max_payload_length())
+    );
 
-        let data = unsafe { slice::from_raw_parts(pBuf.cast::<u8>(), Length as usize) };
-        let data = Vec::from(data);
+    let data = unsafe { slice::from_raw_parts(pBuf.cast::<u8>(), Length as usize) };
+    let data = Vec::from(data);
 
-        from_rdp
-            .send(super::Response::ReceivedData(data))
-            .expect("internal error: failed to send RDP message");
-    }
+    crate::CONTROL
+        .deref()
+        .channel_connector()
+        .send(control::FromVc::Data(data))
+        .expect("internal error: failed to send control message");
 
     headers::CLIENT_STATUS_SUCCESS
 }
 
-pub struct Svc {
+pub(crate) struct Svc {
+    #[cfg(feature = "service-input")]
     client: Option<client::Client>,
 }
 
@@ -331,47 +313,71 @@ unsafe impl Sync for Svc {}
 unsafe impl Send for Svc {}
 
 impl Svc {
+    #[cfg(feature = "service-input")]
     fn new(client: Option<client::Client>) -> Self {
         Self { client }
     }
 }
 
-impl super::SvcImplementation for Svc {
-    #[allow(clippy::too_many_lines)]
-    fn open(&mut self) -> Result<(), super::Error> {
-        if HANDLE.read().unwrap().is_none() {
-            Err(super::Error::Citrix(Error::Disconnected))
-        } else {
-            Ok(())
-        }
-    }
-
-    fn write(&self, data: Vec<u8>) -> Result<(), super::Error> {
-        HANDLE.read().unwrap().as_ref().map_or(
-            Err(super::Error::Citrix(Error::Disconnected)),
-            |handle| {
-                handle.queue(data);
-                Ok(())
-            },
-        )
-    }
-
-    fn close(&mut self) -> Result<(), super::Error> {
-        let _ = HANDLE.write().unwrap().take();
+impl vc::VirtualChannel for Svc {
+    fn open(&mut self) -> Result<(), vc::Error> {
         Ok(())
     }
 
-    fn reset_client(&mut self) {
-        if let Some(client) = self.client_mut() {
-            client.reset();
-        }
-    }
-
+    #[cfg(feature = "service-input")]
     fn client(&self) -> Option<&client::Client> {
         self.client.as_ref()
     }
 
+    #[cfg(feature = "service-input")]
     fn client_mut(&mut self) -> Option<&mut client::Client> {
         self.client.as_mut()
+    }
+
+    fn terminate(&mut self) -> Result<(), vc::Error> {
+        Ok(())
+    }
+}
+
+pub(crate) struct Handle {
+    write_queue_send: crossbeam_channel::Sender<Vec<u8>>,
+}
+
+impl Handle {
+    fn new(
+        pwd_data: headers::PWD,
+        channel_num: headers::USHORT,
+        queue_virtual_write: unsafe extern "C" fn(
+            headers::LPVOID,
+            headers::USHORT,
+            headers::LPMEMORY_SECTION,
+            headers::USHORT,
+            headers::USHORT,
+        ) -> ffi::c_int,
+    ) -> (Self, ShadowHandle) {
+        let (write_queue_send, write_queue_receive) =
+            crossbeam_channel::bounded(super::MAX_CHUNKS_IN_FLIGHT);
+
+        (
+            Self { write_queue_send },
+            ShadowHandle {
+                pwd_data,
+                channel_num,
+                queue_virtual_write,
+                write_last_miss: sync::RwLock::new(None),
+                write_queue_receive,
+            },
+        )
+    }
+}
+
+impl vc::Handle for Handle {
+    fn write(&self, data: Vec<u8>) -> Result<(), vc::Error> {
+        Ok(self.write_queue_send.send(data)?)
+    }
+
+    fn close(&mut self) -> Result<(), vc::Error> {
+        let _ = SHADOW_HANDLE.write().unwrap().take();
+        Ok(())
     }
 }

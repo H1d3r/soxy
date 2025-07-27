@@ -1,0 +1,22 @@
+[package]
+name = "soxyreg"
+version = "4.0.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+winreg = "0"
+
+[lints.clippy]
+pedantic = { level = "deny", priority = -1 }
+must_use_candidate = "allow"
+enum-glob-use = "allow"
+missing-errors-doc = "allow"
+
+[profile.release]
+opt-level = "z"
+debug = false
+strip = true
+lto = true
+panic = "abort"
+codegen-units = 1

@@ -3,7 +3,7 @@ mod inner {
     #[macro_export]
     macro_rules! trace {
         ($($args:tt)*) => {
-            let _ = format_args!($($args)*);
+            { let _ = format_args!($($args)*); }
         };
         () => {};
     }
@@ -11,7 +11,7 @@ mod inner {
     #[macro_export]
     macro_rules! debug {
         ($($args:tt)*) => {
-            let _ = format_args!($($args)*);
+            { let _ = format_args!($($args)*); }
         };
         () => {};
     }
@@ -19,7 +19,7 @@ mod inner {
     #[macro_export]
     macro_rules! info {
         ($($args:tt)*) => {
-            let _ = format_args!($($args)*);
+            { let _ = format_args!($($args)*); }
         };
         () => {};
     }
@@ -27,7 +27,7 @@ mod inner {
     #[macro_export]
     macro_rules! warn {
         ($($args:tt)*) => {
-            let _ = format_args!($($args)*);
+            { let _ = format_args!($($args)*); }
         };
         () => {};
     }
@@ -35,7 +35,7 @@ mod inner {
     #[macro_export]
     macro_rules! error {
         ($($args:tt)*) => {
-            let _ = format_args!($($args)*);
+            { let _ = format_args!($($args)*); }
         };
         () => {};
     }

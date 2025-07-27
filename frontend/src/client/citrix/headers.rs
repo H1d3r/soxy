@@ -6,4 +6,4 @@
 #![allow(clippy::identity_op)]
 #![allow(clippy::unreadable_literal)]
 
-include!(concat!(env!("OUT_DIR"), "/citrix_client_headers.rs"));
+include!(concat!(env!("OUT_DIR"), "/client_citrix_headers.rs"));

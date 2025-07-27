@@ -60,6 +60,21 @@ typedef CHANNEL_ENTRY_POINTS_FREERDP *PCHANNEL_ENTRY_POINTS_FREERDP;
 
 const UINT32 FREERDP_CHANNEL_MAGIC_NUMBER = 0x46524450;
 
+
+typedef struct s_IDRDYNVC_ENTRY_POINTS IDRDYNVC_ENTRY_POINTS;
+
+struct s_IDRDYNVC_ENTRY_POINTS {
+  UINT (*RegisterPlugin)(IDRDYNVC_ENTRY_POINTS* pEntryPoints,
+                         const char* name,
+                         void* pPlugin);
+  void* (*GetPlugin)(IDRDYNVC_ENTRY_POINTS* pEntryPoints,
+                     const char* name);
+  const void* (*GetPluginData)(IDRDYNVC_ENTRY_POINTS* pEntryPoints);
+  void* (*GetRdpSettings)(IDRDYNVC_ENTRY_POINTS* pEntryPoints);
+  struct rdp_context* (*GetRdpContext)(IDRDYNVC_ENTRY_POINTS* pEntryPoints);
+};
+
+
 typedef BOOL (*freerdp_input_send_keyboard_event_ex)(void* rdp_input,
                                                      BOOL down,
                                                      BOOL repeat,

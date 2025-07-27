@@ -50,29 +50,46 @@ pub(crate) struct Client {
 
 impl Client {
     fn load(size: headers::DWORD, entrypoints: headers::LPVOID) -> Result<Self, Error> {
-        let size_of_freerdp_struct = mem::size_of::<headers::CHANNEL_ENTRY_POINTS_FREERDP>();
-        if size as usize != size_of_freerdp_struct {
-            return Err(Error::NotFreerdp(format!(
-                "size of the struct is not 0x{size_of_freerdp_struct:x}"
-            )))?;
-        }
+        let rdp_context = {
+            if size as usize == mem::size_of::<headers::CHANNEL_ENTRY_POINTS_FREERDP>() {
+                let pep: headers::PCHANNEL_ENTRY_POINTS_FREERDP = entrypoints.cast();
+                let ep = unsafe { *pep };
 
-        let pep: headers::PCHANNEL_ENTRY_POINTS_FREERDP = entrypoints.cast();
-        let ep = unsafe { *pep };
+                if ep.MagicNumber == headers::FREERDP_CHANNEL_MAGIC_NUMBER {
+                    Ok(ep.rdpContext)
+                } else {
+                    Err(Error::NotFreerdp(format!(
+                        "bad magic number 0x{:x}",
+                        ep.MagicNumber
+                    )))
+                }
+            } else if size as usize == mem::size_of::<headers::IDRDYNVC_ENTRY_POINTS>() {
+                let pep: *mut headers::IDRDYNVC_ENTRY_POINTS = entrypoints.cast();
 
-        if ep.MagicNumber != headers::FREERDP_CHANNEL_MAGIC_NUMBER {
-            return Err(Error::NotFreerdp(format!(
-                "bad magic number 0x{:x}",
-                ep.MagicNumber
-            )))?;
-        }
+                let ep = unsafe { *pep };
+
+                let get_rdp_context = ep
+                    .GetRdpContext
+                    .ok_or(Error::NotFreerdp("GetRdpContext is null".into()))?;
+
+                Ok(unsafe { get_rdp_context(entrypoints.cast()) })
+            } else {
+                Err(Error::NotFreerdp("no valid structure found".into()))
+            }
+        }?;
+
+        let rdp_context = unsafe { rdp_context.as_ref() }
+            .ok_or(Error::NotFreerdp("rdp_context is null".into()))?;
+
+        let rdp_input = rdp_context.input;
 
         let x11 = x11::Client::load()?;
 
-        let rdp_input = unsafe { (*ep.rdpContext).input };
-
-        let lfreerdp =
-            unsafe { libloading::Library::new(libloading::library_filename("freerdp3"))? };
+        let lfreerdp = unsafe {
+            libloading::Library::new(libloading::library_filename("freerdp3")).or(
+                libloading::Library::new(libloading::library_filename("freerdp2")),
+            )?
+        };
 
         let keyboard_init = unsafe {
             lfreerdp

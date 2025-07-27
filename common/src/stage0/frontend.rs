@@ -73,7 +73,7 @@ pub(crate) fn tcp_handler(
                     writeln!(client_write, "failed to open file for reading: {e}")?;
                 }
                 Ok(mut file) => {
-                    let mut buf = [0; api::CHUNK_LENGTH];
+                    let mut buf = [0; api::PDU_DATA_MAX_SIZE];
 
                     let mut total = 0;
 
@@ -86,7 +86,7 @@ pub(crate) fn tcp_handler(
 
                         crate::trace!("{read} bytes read");
 
-                        rdp.write_all(&buf[0..read])?;
+                        rdp.write_all(&buf[..read])?;
 
                         total += read;
                     }
@@ -100,7 +100,6 @@ pub(crate) fn tcp_handler(
 
     client_write.flush()?;
 
-    let _ = rdp.disconnect();
     let lstream = client_read.into_inner();
     let _ = lstream.shutdown(net::Shutdown::Both);
 

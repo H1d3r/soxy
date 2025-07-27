@@ -1,6 +1,6 @@
 #[cfg(feature = "frontend")]
 use crate::frontend;
-use crate::{api, channel, input, rdp};
+use crate::{api, rdp};
 
 #[cfg(feature = "service-clipboard")]
 use crate::clipboard;
@@ -8,6 +8,8 @@ use crate::clipboard;
 use crate::command;
 #[cfg(feature = "service-ftp")]
 use crate::ftp;
+#[cfg(feature = "service-input")]
+use crate::input;
 #[cfg(feature = "service-socks5")]
 use crate::socks5;
 #[cfg(feature = "service-stage0")]
@@ -25,14 +27,14 @@ where
     R: io::Read,
     W: io::Write,
 {
-    let mut buf = vec![0u8; channel::CLIENT_CHUNK_BUFFER_SIZE * api::Chunk::max_payload_length()];
+    let mut buf = vec![0u8; 10 * api::Chunk::max_payload_length()];
 
     loop {
         let read = from.read(&mut buf)?;
         if read == 0 {
             return Ok(());
         }
-        to.write_all(&buf[0..read])?;
+        to.write_all(&buf[..read])?;
         to.flush()?;
         thread::yield_now();
     }
@@ -46,43 +48,38 @@ pub(crate) fn double_stream_copy(
 ) -> Result<(), io::Error> {
     let client_id = rdp_stream.client_id();
 
-    let (rdp_stream_read, rdp_stream_write) = rdp_stream.split();
+    let (mut rdp_stream_read, mut rdp_stream_write) = rdp_stream.split();
 
     let tcp_stream2 = tcp_stream.try_clone()?;
 
-    thread::scope(|scope| {
+    thread::scope(move |scope| {
         thread::Builder::new()
             .name(format!(
                 "{service_kind} {service} {client_id:x} stream copy"
             ))
             .spawn_scoped(scope, move || {
-                let mut rdp_stream_read = io::BufReader::new(rdp_stream_read);
                 let mut tcp_stream2 = io::BufWriter::new(tcp_stream2);
                 if let Err(e) = stream_copy(&mut rdp_stream_read, &mut tcp_stream2) {
                     crate::debug!("error: {e}");
                 } else {
                     crate::debug!("stopped");
                 }
+                let _ = rdp_stream_read;
                 let _ = tcp_stream2.flush();
                 if let Ok(tcp_stream2) = tcp_stream2.into_inner() {
                     let _ = tcp_stream2.shutdown(net::Shutdown::Both);
                 }
-                let rdp_stream_read = rdp_stream_read.into_inner();
-                rdp_stream_read.disconnect();
             })
             .unwrap();
 
         let mut tcp_stream = io::BufReader::new(tcp_stream);
-        let mut rdp_stream_write = io::BufWriter::new(rdp_stream_write);
         if let Err(e) = stream_copy(&mut tcp_stream, &mut rdp_stream_write) {
             crate::debug!("error: {e}");
         } else {
             crate::debug!("stopped");
         }
         let _ = rdp_stream_write.flush();
-        if let Ok(mut rdp_stream_write) = rdp_stream_write.into_inner() {
-            let _ = rdp_stream_write.disconnect();
-        }
+        let _ = rdp_stream_write;
         let tcp_stream = tcp_stream.into_inner();
         let _ = tcp_stream.shutdown(net::Shutdown::Both);
 
@@ -166,6 +163,7 @@ pub static SERVICES: &[&Service] = &[
     &clipboard::SERVICE,
     #[cfg(feature = "service-command")]
     &command::SERVICE,
+    #[cfg(feature = "service-input")]
     &input::SERVICE,
     #[cfg(feature = "service-ftp")]
     &ftp::SERVICE,

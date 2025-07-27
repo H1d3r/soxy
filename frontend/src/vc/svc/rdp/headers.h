@@ -120,7 +120,7 @@ typedef VOID (*VirtualChannelInitEventEx) (LPVOID lpUserParam,
 
 typedef VirtualChannelInitEventEx PCHANNEL_INIT_EVENT_EX_FN;
 
-typedef UINT (*VirtualChannelInitEx) (LPVOID lpUserParam,
+typedef UINT (*VirtualChannelInitEx_Freerdp) (LPVOID lpUserParam,
                                       LPVOID clientContext,
                                       LPVOID pInitHandle,
                                       PCHANNEL_DEF pChannel,
@@ -129,7 +129,17 @@ typedef UINT (*VirtualChannelInitEx) (LPVOID lpUserParam,
                                       PCHANNEL_INIT_EVENT_EX_FN pChannelInitEventProcEx
                                       );
 
-typedef VirtualChannelInitEx PVIRTUALCHANNELINITEX;
+typedef VirtualChannelInitEx_Freerdp PVIRTUALCHANNELINITEX_FREERDP;
+
+typedef UINT (*VirtualChannelInitEx_Windows) (LPVOID lpUserParam,
+                                              LPVOID pInitHandle,
+                                              PCHANNEL_DEF pChannel,
+                                              INT channelCount,
+                                              ULONG versionRequested,
+                                              PCHANNEL_INIT_EVENT_EX_FN pChannelInitEventProcEx
+                                      );
+
+typedef VirtualChannelInitEx_Windows PVIRTUALCHANNELINITEX_WINDOWS;
 
 typedef VOID (*VirtualChannelOpenEventEx) (LPVOID lpUserParam,
                                            DWORD openHandle,
@@ -164,43 +174,40 @@ typedef UINT (*VirtualChannelWriteEx) (LPVOID pInitHandle,
 
 typedef VirtualChannelWriteEx PVIRTUALCHANNELWRITEEX;
 
-typedef struct  _CHANNEL_ENTRY_POINTS_EX {
+typedef struct  _CHANNEL_ENTRY_POINTS_EX_FREERDP {
         DWORD                  cbSize;
         DWORD                  protocolVersion;
-        PVIRTUALCHANNELINITEX  pVirtualChannelInitEx;
+        PVIRTUALCHANNELINITEX_FREERDP  pVirtualChannelInitEx;
         PVIRTUALCHANNELOPENEX  pVirtualChannelOpenEx;
         PVIRTUALCHANNELCLOSEEX pVirtualChannelCloseEx;
         PVIRTUALCHANNELWRITEEX pVirtualChannelWriteEx;
-} CHANNEL_ENTRY_POINTS_EX, *PCHANNEL_ENTRY_POINTS_EX;
+} CHANNEL_ENTRY_POINTS_EX_FREERDP, *PCHANNEL_ENTRY_POINTS_EX_FREERDP;
 
-typedef BOOL (*VirtualChannelEntryExMSDN) (PCHANNEL_ENTRY_POINTS_EX pEntryPointsEx,
-                                           PVOID pInitHandle);
+typedef BOOL (*VirtualChannelEntryEx_Freerdp) (PCHANNEL_ENTRY_POINTS_EX_FREERDP pEntryPointsEx,
+                                               PVOID pInitHandle);
 
-typedef VirtualChannelEntryExMSDN PVIRTUALCHANNELENTRYEX;
+typedef VirtualChannelEntryEx_Freerdp PVIRTUALCHANNELENTRYEX_FREERDP;
+
+typedef struct  _CHANNEL_ENTRY_POINTS_EX_WINDOWS {
+        DWORD                  cbSize;
+        DWORD                  protocolVersion;
+        PVIRTUALCHANNELINITEX_WINDOWS  pVirtualChannelInitEx;
+        PVIRTUALCHANNELOPENEX  pVirtualChannelOpenEx;
+        PVIRTUALCHANNELCLOSEEX pVirtualChannelCloseEx;
+        PVIRTUALCHANNELWRITEEX pVirtualChannelWriteEx;
+} CHANNEL_ENTRY_POINTS_EX_WINDOWS, *PCHANNEL_ENTRY_POINTS_EX_WINDOWS;
+
+typedef BOOL (*VirtualChannelEntryEx_Windows) (PCHANNEL_ENTRY_POINTS_EX_WINDOWS pEntryPointsEx,
+                                               PVOID pInitHandle);
+
+typedef VirtualChannelEntryEx_Windows PVIRTUALCHANNELENTRYEX_WINDOWS;
 
 /*
  * MS compatible SVC plugin interface
  * Reference: http://msdn.microsoft.com/en-us/library/aa383580.aspx
  */
 
-#define CHANNEL_RC_OK                             0
-#define CHANNEL_RC_ALREADY_INITIALIZED            1
-#define CHANNEL_RC_NOT_INITIALIZED                2
-#define CHANNEL_RC_ALREADY_CONNECTED              3
-#define CHANNEL_RC_NOT_CONNECTED                  4
-#define CHANNEL_RC_TOO_MANY_CHANNELS              5
-#define CHANNEL_RC_BAD_CHANNEL                    6
-#define CHANNEL_RC_BAD_CHANNEL_HANDLE             7
-#define CHANNEL_RC_NO_BUFFER                      8
-#define CHANNEL_RC_BAD_INIT_HANDLE                9
-#define CHANNEL_RC_NOT_OPEN                      10
-#define CHANNEL_RC_BAD_PROC                      11
-#define CHANNEL_RC_NO_MEMORY                     12
-#define CHANNEL_RC_UNKNOWN_CHANNEL_NAME          13
-#define CHANNEL_RC_ALREADY_OPEN                  14
-#define CHANNEL_RC_NOT_IN_VIRTUALCHANNELENTRY    15
-#define CHANNEL_RC_NULL_DATA                     16
-#define CHANNEL_RC_ZERO_LENGTH                   17
+#define CHANNEL_RC_OK                           0
 
 #define VIRTUAL_CHANNEL_VERSION_WIN2000         1
 
