@@ -129,13 +129,7 @@ pub(crate) fn tcp_handler(
     match handshake(&mut stream) {
         Err(e) => match e {
             Error::Io(e) => Err(api::Error::Io(e)),
-            Error::UnsupportedVersion(_) => {
-                let buf = [protocol::VERSION, 0xFF];
-                stream.write_all(&buf)?;
-                stream.flush()?;
-                Ok(())
-            }
-            Error::UnsupportedAuthentication(_) => {
+            Error::UnsupportedVersion(_) | Error::UnsupportedAuthentication(_) => {
                 let buf = [protocol::VERSION, 0xFF];
                 stream.write_all(&buf)?;
                 stream.flush()?;

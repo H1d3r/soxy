@@ -15,9 +15,8 @@ where
         return Err(io::Error::new(io::ErrorKind::BrokenPipe, "disconnected"));
     }
 
-    let line = match line.strip_suffix("\r\n") {
-        None => return Ok(None),
-        Some(line) => line,
+    let Some(line) = line.strip_suffix("\r\n") else {
+        return Ok(None);
     };
 
     crate::debug!("{line:?}");

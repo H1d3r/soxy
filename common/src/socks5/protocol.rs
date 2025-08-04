@@ -1,3 +1,4 @@
+use crate::util;
 use std::io;
 #[cfg(feature = "frontend")]
 use std::net;
@@ -130,11 +131,7 @@ impl Command {
                 let buf = [ID_CMD_CONNECT; 1];
                 stream.write_all(&buf)?;
 
-                let len = u32::try_from(to_tcp.len())
-                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
-                stream.write_all(&len.to_le_bytes())?;
-
-                stream.write_all(to_tcp.as_bytes())?;
+                util::serialize_string(stream, to_tcp)?;
             }
             Self::Bind => {
                 let buf = [ID_CMD_BIND; 1];
@@ -154,14 +151,7 @@ impl Command {
 
         match buf[0] {
             ID_CMD_CONNECT => {
-                let mut buf = [0u8; 4];
-                stream.read_exact(&mut buf)?;
-                let len = u32::from_le_bytes(buf);
-
-                let mut buf = vec![0u8; len as usize];
-                stream.read_exact(&mut buf)?;
-                let to_tcp = String::from_utf8_lossy(&buf).to_string();
-
+                let to_tcp = util::deserialize_string(stream)?;
                 Ok(Self::Connect(to_tcp))
             }
             ID_CMD_BIND => Ok(Self::Bind),

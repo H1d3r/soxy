@@ -1,32 +1,5 @@
-use crate::api;
+use crate::{api, util};
 use std::io;
-
-fn write_string<W>(stream: &mut W, s: &str) -> Result<(), api::Error>
-where
-    W: io::Write,
-{
-    let len = s.len() as u64;
-    stream.write_all(&len.to_le_bytes())?;
-
-    stream.write_all(s.as_bytes())?;
-
-    Ok(())
-}
-
-fn read_string<R>(stream: &mut R) -> Result<String, api::Error>
-where
-    R: io::Read,
-{
-    let mut len = [0u8; 8];
-    stream.read_exact(&mut len)?;
-    let len = u64::from_le_bytes(len);
-
-    let len = usize::try_from(len)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
-    let mut buf = vec![0u8; len];
-    stream.read_exact(&mut buf)?;
-    Ok(String::from_utf8_lossy(&buf).to_string())
-}
 
 const ID_MODE_CONTROL: u8 = 0x00;
 const ID_MODE_DATA: u8 = 0x01;
@@ -141,7 +114,7 @@ impl ControlCommand {
 
         match self {
             Self::Dele(s) | Self::Cwd(s) | Self::Retr(s) | Self::Stor(s) | Self::Size(s) => {
-                write_string(stream, s)?;
+                util::serialize_string(stream, s)?;
             }
             Self::Cdup
             | Self::Epsv
@@ -172,8 +145,8 @@ impl ControlCommand {
 
         let res = match buf[0] {
             ID_CTRL_CMD_CDUP => Self::Cdup,
-            ID_CTRL_CMD_CWD => Self::Cwd(read_string(stream)?),
-            ID_CTRL_CMD_DELE => Self::Dele(read_string(stream)?),
+            ID_CTRL_CMD_CWD => Self::Cwd(util::deserialize_string(stream)?),
+            ID_CTRL_CMD_DELE => Self::Dele(util::deserialize_string(stream)?),
             ID_CTRL_CMD_EPSV => Self::Epsv,
             ID_CTRL_CMD_FEAT => Self::Feat,
             ID_CTRL_CMD_LIST => Self::List,
@@ -183,9 +156,9 @@ impl ControlCommand {
             ID_CTRL_CMD_PASV => Self::Pasv,
             ID_CTRL_CMD_PWD => Self::Pwd,
             ID_CTRL_CMD_QUIT => Self::Quit,
-            ID_CTRL_CMD_RETR => Self::Retr(read_string(stream)?),
-            ID_CTRL_CMD_STOR => Self::Stor(read_string(stream)?),
-            ID_CTRL_CMD_SIZE => Self::Size(read_string(stream)?),
+            ID_CTRL_CMD_RETR => Self::Retr(util::deserialize_string(stream)?),
+            ID_CTRL_CMD_STOR => Self::Stor(util::deserialize_string(stream)?),
+            ID_CTRL_CMD_SIZE => Self::Size(util::deserialize_string(stream)?),
             ID_CTRL_CMD_TYPE => Self::Type,
             ID_CTRL_CMD_USER => Self::User,
             v => unimplemented!("unsupported ftp data command {v}"),
@@ -237,8 +210,8 @@ impl ControlResponse {
             Self::Ok(c, msg) => {
                 stream.write_all(&c.to_le_bytes())?;
                 match msg {
-                    None => write_string(stream, "")?,
-                    Some(msg) => write_string(stream, msg)?,
+                    None => util::serialize_string(stream, "")?,
+                    Some(msg) => util::serialize_string(stream, msg)?,
                 }
             }
             Self::Error(c) => {
@@ -268,7 +241,7 @@ impl ControlResponse {
                 let mut c = [0u8; 2];
                 stream.read_exact(&mut c)?;
                 let c = u16::from_le_bytes(c);
-                let msg = read_string(stream)?;
+                let msg = util::deserialize_string(stream)?;
                 if msg.is_empty() {
                     Self::Ok(c, None)
                 } else {
@@ -325,7 +298,7 @@ impl DataCommand {
 
         match self {
             Self::List(p) | Self::Nlst(p) | Self::Retr(p) | Self::Stor(p) => {
-                write_string(stream, p)?;
+                util::serialize_string(stream, p)?;
             }
         }
 
@@ -341,7 +314,7 @@ impl DataCommand {
         let mut buf = [0u8; 1];
         stream.read_exact(&mut buf)?;
 
-        let path = read_string(stream)?;
+        let path = util::deserialize_string(stream)?;
 
         let res = match buf[0] {
             ID_DATA_CMD_LIST => Self::List(path),

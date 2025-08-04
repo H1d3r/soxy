@@ -1,11 +1,16 @@
+#[cfg(feature = "backend")]
 use network_interface::NetworkInterfaceConfig;
+use std::io;
+#[cfg(feature = "backend")]
 use std::net;
 
+#[cfg(feature = "backend")]
 pub(crate) struct BestAddress {
     pub cidr4: Option<(net::Ipv4Addr, u8)>,
     pub cidr6: Option<(net::Ipv6Addr, u8)>,
 }
 
+#[cfg(feature = "backend")]
 pub(crate) fn find_best_address() -> Result<BestAddress, network_interface::Error> {
     let interfaces = network_interface::NetworkInterface::show()?;
 
@@ -76,4 +81,34 @@ pub(crate) fn find_best_address() -> Result<BestAddress, network_interface::Erro
         cidr4: best_cidr4,
         cidr6: best_cidr6,
     })
+}
+
+type StringLen = u64;
+
+pub(crate) fn serialize_string<W>(stream: &mut W, s: &str) -> Result<(), io::Error>
+where
+    W: io::Write,
+{
+    let len = s.len() as StringLen;
+    stream.write_all(&len.to_le_bytes())?;
+
+    stream.write_all(s.as_bytes())?;
+
+    Ok(())
+}
+
+pub(crate) fn deserialize_string<R>(stream: &mut R) -> Result<String, io::Error>
+where
+    R: io::Read,
+{
+    let mut len = [0u8; 8];
+    stream.read_exact(&mut len)?;
+    let len = StringLen::from_le_bytes(len);
+
+    let len = usize::try_from(len)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+
+    let mut buf = vec![0u8; len];
+    stream.read_exact(&mut buf)?;
+    Ok(String::from_utf8_lossy(&buf).to_string())
 }

@@ -73,7 +73,6 @@ pub(crate) fn tcp_handler<'a>(
                 protocol::Command::Read.send(&mut rdp)?;
                 match protocol::Response::receive(&mut rdp)? {
                     protocol::Response::Text(value) => {
-                        let value = String::from_utf8_lossy(&value);
                         writeln!(client_write, "ok {value:?}")?;
                     }
                     protocol::Response::Failed => {
@@ -83,7 +82,7 @@ pub(crate) fn tcp_handler<'a>(
                 }
             }
             "WRITE" | "PUT" => {
-                protocol::Command::WriteText(args.into_bytes()).send(&mut rdp)?;
+                protocol::Command::WriteText(args).send(&mut rdp)?;
                 match protocol::Response::receive(&mut rdp)? {
                     protocol::Response::WriteDone => {
                         writeln!(client_write, "ok")?;

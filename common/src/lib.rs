@@ -24,7 +24,6 @@ mod socks5;
 mod stage0;
 
 mod log;
-#[cfg(feature = "backend")]
 mod util;
 
 pub const VIRTUAL_CHANNEL_DEFAULT_NAME: &str = "SOXY";
@@ -102,16 +101,15 @@ pub fn init_logs(level: Level, file: Option<&String>) {
         simplelog::ColorChoice::Auto,
     )];
 
-    if let Some(file) = file {
-        if let Ok(file) = fs::File::options()
+    if let Some(file) = file
+        && let Ok(file) = fs::File::options()
             .create(true)
             .append(false)
             .truncate(true)
             .write(true)
             .open(file)
-        {
-            loggers.push(simplelog::WriteLogger::new(level_filter, config, file));
-        }
+    {
+        loggers.push(simplelog::WriteLogger::new(level_filter, config, file));
     }
 
     let _ = simplelog::CombinedLogger::init(loggers);

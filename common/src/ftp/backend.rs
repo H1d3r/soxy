@@ -140,34 +140,35 @@ fn data_handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
             let path = path::PathBuf::from(path);
             if let Ok(dir) = path.read_dir() {
                 dir.into_iter().try_for_each(|entry| {
-                    if let Ok(entry) = entry {
-                        if let Ok(file_type) = entry.file_type() {
-                            if file_type.is_dir() {
-                                write!(stream, "d")?;
-                            } else if file_type.is_file() {
-                                write!(stream, "-")?;
-                            } else {
-                                write!(stream, "l")?;
-                            }
-                            let _ = write!(stream, "rwxrwxrwx ");
-
-                            if file_type.is_dir() {
-                                let _ = write!(stream, "2 ftp ftp ");
-                            } else {
-                                let _ = write!(stream, "1 ftp ftp ");
-                            }
-
-                            if let Ok(metadata) = entry.metadata() {
-                                write!(stream, "{} ", metadata.len())?;
-                            } else {
-                                write!(stream, "0 ")?;
-                            }
-
-                            write!(stream, "Jan 1 1970 ")?;
-
-                            write!(stream, "{}\r\n", entry.file_name().into_string().unwrap())?;
+                    if let Ok(entry) = entry
+                        && let Ok(file_type) = entry.file_type()
+                    {
+                        if file_type.is_dir() {
+                            write!(stream, "d")?;
+                        } else if file_type.is_file() {
+                            write!(stream, "-")?;
+                        } else {
+                            write!(stream, "l")?;
                         }
+                        let _ = write!(stream, "rwxrwxrwx ");
+
+                        if file_type.is_dir() {
+                            let _ = write!(stream, "2 ftp ftp ");
+                        } else {
+                            let _ = write!(stream, "1 ftp ftp ");
+                        }
+
+                        if let Ok(metadata) = entry.metadata() {
+                            write!(stream, "{} ", metadata.len())?;
+                        } else {
+                            write!(stream, "0 ")?;
+                        }
+
+                        write!(stream, "Jan 1 1970 ")?;
+
+                        write!(stream, "{}\r\n", entry.file_name().into_string().unwrap())?;
                     }
+
                     Ok::<(), io::Error>(())
                 })?;
             }
