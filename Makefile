@@ -11,11 +11,13 @@ TARGETS_SOXYREG ?= i686-pc-windows-gnu x86_64-pc-windows-gnu
 RELEASE_DIR := release
 DEBUG_DIR := debug
 
-BACKEND_RELEASE_BASE_RUST_FLAGS := --remap-path-prefix ${HOME}=/foo -Zlocation-detail=none
+BACKEND_RELEASE_BASE_RUST_FLAGS := --remap-path-prefix ${HOME}=/foo -Zlocation-detail=none -C target-feature=+crt-static
 
 BACKEND_RELEASE_LIB_RUST_FLAGS := $(BACKEND_RELEASE_BASE_RUST_FLAGS)
 
 BACKEND_RELEASE_BIN_RUST_FLAGS := $(BACKEND_RELEASE_BASE_RUST_FLAGS)
+
+SOXYREG_RELEASE_RUST_FLAGS := $(BACKEND_RELEASE_BASE_RUST_FLAGS)
 
 BACKEND_BUILD_FLAGS := -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort
 
@@ -28,7 +30,8 @@ TOOLCHAIN_STANDALONE_RELEASE ?= stable
 TOOLCHAIN_WIN7_TAG ?= 1.88.0
 TOOLCHAIN_WIN7_BACKEND ?= win7-$(TOOLCHAIN_WIN7_TAG)
 TOOLCHAIN_WIN7_RUST_DIR = win7-rustc
-TOOLCHAIN_SOXYREG ?= stable
+TOOLCHAIN_SOXYREG_DEBUG ?= stable
+TOOLCHAIN_SOXYREG_RELEASE ?= nightly
 
 SHELL := bash
 
@@ -37,7 +40,7 @@ SHELL := bash
 .PHONY: default
 default: setup release
 
-TOOLCHAINS := $(sort $(TOOLCHAIN_FRONTEND_DEBUG) $(TOOLCHAIN_FRONTEND_RELEASE) $(TOOLCHAIN_BACKEND_DEBUG) $(TOOLCHAIN_BACKEND_RELEASE) $(TOOLCHAIN_STANDALONE_DEBUG) $(TOOLCHAIN_STANDALONE_RELEASE) $(TOOLCHAIN_SOXYREG))
+TOOLCHAINS := $(sort $(TOOLCHAIN_FRONTEND_DEBUG) $(TOOLCHAIN_FRONTEND_RELEASE) $(TOOLCHAIN_BACKEND_DEBUG) $(TOOLCHAIN_BACKEND_RELEASE) $(TOOLCHAIN_STANDALONE_DEBUG) $(TOOLCHAIN_STANDALONE_RELEASE) $(TOOLCHAIN_SOXYREG_DEBUG) $(TOOLCHAIN_SOXYREG_RELEASE))
 TARGETS := $(sort $(TARGETS_FRONTEND) $(TARGETS_BACKEND) $(TARGETS_STANDALONE) $(TARGETS_SOXYREG))
 
 .PHONY: setup
@@ -175,8 +178,8 @@ build-release:
 		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_RELEASE) build --release --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_SOXYREG) ; do \
-		echo ; echo "# Building release soxyreg for $$t with $(TOOLCHAIN_SOXYREG)" ; echo ; \
-		(cd soxyreg && cargo +$(TOOLCHAIN_SOXYREG) build --release --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Building release soxyreg for $$t with $(TOOLCHAIN_SOXYREG_RELEASE)" ; echo ; \
+		(cd soxyreg && RUSTFLAGS="$(SOXYREG_RELEASE_RUST_FLAGS)" cargo +$(TOOLCHAIN_SOXYREG_RELEASE) build --release --target $$t && cd ..) || exit 1 ; \
 	done
 
 .PHONY: build-debug
@@ -196,8 +199,8 @@ build-debug:
 		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_DEBUG) build --features log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_SOXYREG) ; do \
-		echo ; echo "# Building debug soxyreg for $$t with $(TOOLCHAIN_SOXYREG)" ; echo ; \
-		(cd soxyreg && cargo +$(TOOLCHAIN_SOXYREG) build --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Building debug soxyreg for $$t with $(TOOLCHAIN_SOXYREG_DEBUG)" ; echo ; \
+		(cd soxyreg && cargo +$(TOOLCHAIN_SOXYREG_DEBUG) build --target $$t && cd ..) || exit 1 ; \
 	done
 
 .PHONY: build-win7
@@ -237,8 +240,8 @@ clippy:
 		(cd standalone && cargo +$(TOOLCHAIN_STANDALONE_DEBUG) $@ --features $(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS_SOXYREG) ; do \
-		echo ; echo "# Clippy on soxyreg for $$t with $(TOOLCHAIN_SOXYREG)" ; echo ; \
-		(cd soxyreg && cargo +$(TOOLCHAIN_SOXYREG) $@ --target $$t && cd ..) || exit 1 ; \
+		echo ; echo "# Clippy on soxyreg for $$t with $(TOOLCHAIN_SOXYREG_DEBUG)" ; echo ; \
+		(cd soxyreg && cargo +$(TOOLCHAIN_SOXYREG_DEBUG) $@ --target $$t && cd ..) || exit 1 ; \
 	done
 	@for t in $(TARGETS) ; do \
 		echo ; echo "# Clippy on common for $$t" ; echo ; \
