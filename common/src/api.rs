@@ -107,23 +107,26 @@ impl Chunk {
         client_id: ClientId,
         data: Option<&[u8]>,
     ) -> Result<Self, io::Error> {
-        let mut content = Vec::with_capacity(PDU_DATA_MAX_SIZE);
-        content.extend_from_slice(&client_id.to_le_bytes());
-        content.push(chunk_type.serialized());
+        let payload_len = data.as_ref().map_or(0, |data| data.len());
+        if payload_len > (PDU_DATA_MAX_SIZE - SERIALIZE_OVERHEAD) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "payload is too large!",
+            ));
+        }
+        let mut content = vec![0u8; SERIALIZE_OVERHEAD + payload_len];
+        let id_bytes = client_id.to_le_bytes();
+        let mut offset = id_bytes.len();
+        content[0..offset].copy_from_slice(&id_bytes);
+        content[offset] = chunk_type.serialized();
+        offset += 1;
         if let Some(data) = data {
-            let payload_len = data.len();
-            if payload_len > (PDU_DATA_MAX_SIZE - SERIALIZE_OVERHEAD) {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "payload is too large!",
-                ));
-            }
-            let payload_len = u16::try_from(payload_len)
+            let payload_len_u16 = u16::try_from(payload_len)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
-            content.extend_from_slice(&u16::to_le_bytes(payload_len));
-            content.extend_from_slice(data);
-        } else {
-            content.extend_from_slice(&0u16.to_le_bytes());
+            let payload_len_bytes = u16::to_le_bytes(payload_len_u16);
+            content[offset..offset + payload_len_bytes.len()].copy_from_slice(&payload_len_bytes);
+            offset += payload_len_bytes.len();
+            content[offset..offset + payload_len].copy_from_slice(data);
         }
         Ok(Self(content))
     }
