@@ -186,10 +186,10 @@ fn run<'a, V>(
             .spawn_scoped(scope, || {
                 if let Err(e) = backend_to_frontend(handle, backend_to_frontend_receive) {
                     common::error!("stopped: {e}");
-                    if let Some(handle) = handle.write().unwrap().take() {
-                        if let Err(e) = handle.close() {
-                            common::warn!("failed to close channel: {e}");
-                        }
+                    if let Some(handle) = handle.write().unwrap().take()
+                        && let Err(e) = handle.close()
+                    {
+                        common::warn!("failed to close channel: {e}");
                     }
                 } else {
                     common::debug!("stopped");
@@ -204,10 +204,10 @@ fn run<'a, V>(
                     frontend_to_backend(channel_name, vc, handle, frontend_to_backend_send)
                 {
                     common::error!("stopped: {e}");
-                    if let Some(handle) = handle.write().unwrap().take() {
-                        if let Err(e) = handle.close() {
-                            common::warn!("failed to close channel: {e}");
-                        }
+                    if let Some(handle) = handle.write().unwrap().take()
+                        && let Err(e) = handle.close()
+                    {
+                        common::warn!("failed to close channel: {e}");
                     }
                     if let Err(e) = frontend_to_backend_send.send(api::Message::Shutdown) {
                         common::warn!("failed to send shutdown: {e}");

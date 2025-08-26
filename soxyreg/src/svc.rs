@@ -65,32 +65,31 @@ fn citrix_unregister() -> Result<(), String> {
     if let Ok(modules) = hklm.open_subkey_with_flags(path, winreg::enums::KEY_ALL_ACCESS) {
         if let Ok(ica) =
             modules.open_subkey_with_flags(CITRIX_MODULES_ICA_PATH, winreg::enums::KEY_ALL_ACCESS)
+            && let Ok(vdex) = ica.get_value::<String, _>(CITRIX_ICA_VDEX_PATH)
         {
-            if let Ok(vdex) = ica.get_value::<String, _>(CITRIX_ICA_VDEX_PATH) {
-                let vdex = vdex.trim();
-                let vdex: Vec<&str> = if vdex.is_empty() {
-                    vec![]
-                } else {
-                    vdex.split(',')
-                        .map(str::trim)
-                        .filter(|s| s != &ENTRY_NAME)
-                        .collect()
-                };
-                let vdex = vdex.join(",");
-                if let Err(e) = ica.set_value(CITRIX_ICA_VDEX_PATH, &vdex) {
-                    if e.kind() != io::ErrorKind::NotFound {
-                        res = Err(format!(
-                            "failed to alter {path}\\{CITRIX_MODULES_ICA_PATH}\\{CITRIX_ICA_VDEX_PATH}: {e}"
-                        ));
-                    }
-                }
+            let vdex = vdex.trim();
+            let vdex: Vec<&str> = if vdex.is_empty() {
+                vec![]
+            } else {
+                vdex.split(',')
+                    .map(str::trim)
+                    .filter(|s| s != &ENTRY_NAME)
+                    .collect()
+            };
+            let vdex = vdex.join(",");
+            if let Err(e) = ica.set_value(CITRIX_ICA_VDEX_PATH, &vdex)
+                && e.kind() != io::ErrorKind::NotFound
+            {
+                res = Err(format!(
+                    "failed to alter {path}\\{CITRIX_MODULES_ICA_PATH}\\{CITRIX_ICA_VDEX_PATH}: {e}"
+                ));
             }
         }
 
-        if let Err(e) = modules.delete_subkey_all(ENTRY_NAME) {
-            if e.kind() != io::ErrorKind::NotFound {
-                res = Err(format!("failed delete {path}\\{ENTRY_NAME}: {e}"));
-            }
+        if let Err(e) = modules.delete_subkey_all(ENTRY_NAME)
+            && e.kind() != io::ErrorKind::NotFound
+        {
+            res = Err(format!("failed delete {path}\\{ENTRY_NAME}: {e}"));
         }
     }
 
@@ -123,14 +122,12 @@ fn rdp_unregister() -> Result<(), String> {
     let hkcu = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER);
 
     if let Ok(addins) = hkcu.open_subkey_with_flags(RDP_ADDINS_PATH, winreg::enums::KEY_ALL_ACCESS)
+        && let Err(e) = addins.delete_subkey_all(ENTRY_NAME)
+        && e.kind() != io::ErrorKind::NotFound
     {
-        if let Err(e) = addins.delete_subkey_all(ENTRY_NAME) {
-            if e.kind() != io::ErrorKind::NotFound {
-                res = Err(format!(
-                    "failed delete {RDP_ADDINS_PATH}\\{ENTRY_NAME}: {e}"
-                ));
-            }
-        }
+        res = Err(format!(
+            "failed delete {RDP_ADDINS_PATH}\\{ENTRY_NAME}: {e}"
+        ));
     }
 
     res

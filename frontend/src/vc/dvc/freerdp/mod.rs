@@ -76,12 +76,9 @@ extern "C" fn channel_on_data_received(
 ) -> headers::UINT {
     common::trace!("CALLED channel_on_data_received");
 
-    let data = match unsafe { data.as_mut() } {
-        None => {
-            common::error!("invalid data");
-            return 1;
-        }
-        Some(d) => d,
+    let Some(data) = (unsafe { data.as_mut() }) else {
+        common::error!("invalid data");
+        return 1;
     };
 
     let len = usize::try_from(data.length).expect("value too large!");
@@ -159,50 +156,35 @@ extern "C" fn listener_on_new_channel_connection(
 ) -> headers::UINT {
     common::debug!("CALLED listener_on_new_channel_connection");
 
-    let accept = match unsafe { accept.as_mut() } {
-        None => {
-            common::error!("invalid accept");
-            return 1;
-        }
-        Some(a) => a,
+    let Some(accept) = (unsafe { accept.as_mut() }) else {
+        common::error!("invalid accept");
+        return 1;
     };
 
     if crate::CONTROL.deref().is_opened() {
         common::warn!("replacing already opened channel");
     }
 
-    let callback = match unsafe { callback.as_mut() } {
-        None => {
-            common::error!("invalid callback");
-            return 1;
-        }
-        Some(c) => c,
+    let Some(callback) = (unsafe { callback.as_mut() }) else {
+        common::error!("invalid callback");
+        return 1;
     };
 
     *callback = ptr::from_ref(&CHANNEL.0).cast_mut();
 
-    let channel = match unsafe { channel.as_mut() } {
-        None => {
-            common::error!("invalid channel");
-            return 1;
-        }
-        Some(c) => c,
+    let Some(channel) = (unsafe { channel.as_mut() }) else {
+        common::error!("invalid channel");
+        return 1;
     };
 
-    let write = match channel.Write {
-        None => {
-            common::error!("invalid write");
-            return 1;
-        }
-        Some(w) => w,
+    let Some(write) = channel.Write else {
+        common::error!("invalid write");
+        return 1;
     };
 
-    let close = match channel.Close {
-        None => {
-            common::error!("invalid close");
-            return 1;
-        }
-        Some(w) => w,
+    let Some(close) = channel.Close else {
+        common::error!("invalid close");
+        return 1;
     };
 
     *accept = headers::TRUE;
@@ -242,38 +224,29 @@ extern "C" fn plugin_initialize(
 ) -> headers::UINT {
     common::debug!("CALLED plugin_initialize {channel_manager:?}");
 
-    let channel_manager = match unsafe { channel_manager.as_mut() } {
-        None => {
-            common::error!("invalid channel_manager");
-            return 1;
-        }
-        Some(cm) => cm,
+    let Some(channel_manager) = (unsafe { channel_manager.as_mut() }) else {
+        common::error!("invalid channel_manager");
+        return 1;
     };
 
-    let create_listener = match channel_manager.CreateListener {
-        None => {
-            common::error!("missing CreateListener function");
-            return 1;
-        }
-        Some(f) => f,
+    let Some(create_listener) = channel_manager.CreateListener else {
+        common::error!("missing CreateListener function");
+        return 1;
     };
 
-    let name = match crate::CONFIG.get() {
-        None => {
-            common::error!("no config loaded!");
+    let Some(config) = crate::CONFIG.get() else {
+        common::error!("no config loaded!");
+        return 1;
+    };
+
+    common::info!("DVC(freerdp) name is {:?}", config.channel);
+
+    let name = match common::virtual_channel_name(&config.channel) {
+        Err(e) => {
+            common::error!("{e}");
             return 1;
         }
-        Some(config) => {
-            common::info!("DVC(freerdp) name is {:?}", config.channel);
-
-            match common::virtual_channel_name(&config.channel) {
-                Err(e) => {
-                    common::error!("{e}");
-                    return 1;
-                }
-                Ok(name) => name,
-            }
-        }
+        Ok(name) => name,
     };
 
     let flags = 0;
@@ -363,12 +336,9 @@ extern "C" fn DVCPluginEntry(entry_points: *mut headers::IDRDYNVC_ENTRY_POINTS) 
     common::trace!("ep.GetRdpSettings: {:?}", ep.GetRdpSettings);
     common::trace!("ep.GetRdpContext: {:?}", ep.GetRdpContext);
 
-    let register_plugin = match ep.RegisterPlugin {
-        None => {
-            common::error!("missing RegisterPlugin function");
-            return 1;
-        }
-        Some(f) => f,
+    let Some(register_plugin) = ep.RegisterPlugin else {
+        common::error!("missing RegisterPlugin function");
+        return 1;
     };
 
     let mut name = Vec::from(env!("CARGO_CRATE_NAME").as_bytes());

@@ -74,12 +74,10 @@ fn wts_unregister() -> Result<(), String> {
 
     if let Ok(addins) =
         hkcuser.open_subkey_with_flags(WTS_HKCU_ADDINS_PATH, winreg::enums::KEY_ALL_ACCESS)
+        && let Err(e) = addins.delete_subkey_all(PLUGIN_NAME)
+        && e.kind() != io::ErrorKind::NotFound
     {
-        if let Err(e) = addins.delete_subkey_all(PLUGIN_NAME) {
-            if e.kind() != io::ErrorKind::NotFound {
-                res = Err(format!("failed to delete HKCU {PLUGIN_NAME}: {e}"));
-            }
-        }
+        res = Err(format!("failed to delete HKCU {PLUGIN_NAME}: {e}"));
     }
 
     let clsid = guid_to_clsid(soxyreg::PLUGIN_GUID);
@@ -88,12 +86,11 @@ fn wts_unregister() -> Result<(), String> {
 
     let hkcr = winreg::RegKey::predef(winreg::enums::HKEY_CLASSES_ROOT);
 
-    if let Ok(entry) = hkcr.open_subkey_with_flags("CLSID", winreg::enums::KEY_ALL_ACCESS) {
-        if let Err(e) = entry.delete_subkey_all(clsid) {
-            if e.kind() != io::ErrorKind::NotFound {
-                res = Err(format!("failed to delete HKCR CLSID: {e}"));
-            }
-        }
+    if let Ok(entry) = hkcr.open_subkey_with_flags("CLSID", winreg::enums::KEY_ALL_ACCESS)
+        && let Err(e) = entry.delete_subkey_all(clsid)
+        && e.kind() != io::ErrorKind::NotFound
+    {
+        res = Err(format!("failed to delete HKCR CLSID: {e}"));
     }
 
     res
