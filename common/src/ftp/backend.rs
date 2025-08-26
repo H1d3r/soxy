@@ -190,7 +190,7 @@ fn data_handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
             let path = path::PathBuf::from(path);
             let file = fs::File::options().read(true).write(false).open(path)?;
             let mut file = io::BufReader::new(file);
-            if let Err(e) = service::stream_copy(&mut file, &mut stream) {
+            if let Err(e) = service::stream_copy(&mut file, &mut stream, false) {
                 crate::debug!("error: {e}");
             }
         }
@@ -203,7 +203,7 @@ fn data_handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
                 .write(true)
                 .open(path)?;
             let mut file = io::BufWriter::new(file);
-            if let Err(e) = service::stream_copy(&mut stream, &mut file) {
+            if let Err(e) = service::stream_copy(&mut stream, &mut file, false) {
                 crate::debug!("error: {e}");
             }
         }

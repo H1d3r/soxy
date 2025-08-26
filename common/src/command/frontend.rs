@@ -13,5 +13,6 @@ pub(crate) fn tcp_frontend_handler(
         &super::SERVICE,
         client_rdp,
         client,
+        true,
     )?)
 }

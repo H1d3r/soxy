@@ -92,7 +92,7 @@ fn command_connect(
 
     crate::debug!("starting stream copy");
 
-    service::double_stream_copy(SERVICE_KIND, &super::SERVICE, client_rdp, stream)
+    service::double_stream_copy(SERVICE_KIND, &super::SERVICE, client_rdp, stream, true)
 }
 
 fn command_bind(
@@ -117,7 +117,7 @@ fn command_bind(
 
     crate::debug!("starting stream copy");
 
-    service::double_stream_copy(SERVICE_KIND, &super::SERVICE, client_rdp, stream)
+    service::double_stream_copy(SERVICE_KIND, &super::SERVICE, client_rdp, stream, true)
 }
 
 pub(crate) fn tcp_handler(

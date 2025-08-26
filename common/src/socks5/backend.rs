@@ -52,7 +52,7 @@ fn command_connect(mut stream: rdp::RdpStream<'_>, to_tcp: &str) -> Result<(), i
 
             crate::debug!("starting stream copy");
 
-            service::double_stream_copy(SERVICE_KIND, &super::SERVICE, stream, server)
+            service::double_stream_copy(SERVICE_KIND, &super::SERVICE, stream, server, true)
         }
     }
 }
@@ -102,6 +102,7 @@ fn command_bind(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
                                         &super::SERVICE,
                                         stream,
                                         client,
+                                        true,
                                     )
                                 }
                             }

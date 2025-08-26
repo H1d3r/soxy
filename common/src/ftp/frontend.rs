@@ -90,12 +90,12 @@ fn data_command(
 
     let res = if is_upload {
         let mut data_client_read = io::BufReader::new(data_client);
-        let res = service::stream_copy(&mut data_client_read, &mut backend);
+        let res = service::stream_copy(&mut data_client_read, &mut backend, false);
         let _ = backend.flush();
         res
     } else {
         let mut data_client_write = io::BufWriter::new(data_client);
-        let res = service::stream_copy(&mut backend, &mut data_client_write);
+        let res = service::stream_copy(&mut backend, &mut data_client_write, false);
         let _ = data_client_write.flush();
         res
     };

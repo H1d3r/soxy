@@ -22,7 +22,7 @@ use std::{
     thread,
 };
 
-pub(crate) fn stream_copy<R, W>(from: &mut R, to: &mut W) -> Result<(), io::Error>
+pub(crate) fn stream_copy<R, W>(from: &mut R, to: &mut W, flush: bool) -> Result<(), io::Error>
 where
     R: io::Read,
     W: io::Write,
@@ -32,10 +32,13 @@ where
     loop {
         let read = from.read(&mut buf)?;
         if read == 0 {
+            to.flush()?;
             return Ok(());
         }
         to.write_all(&buf[..read])?;
-        to.flush()?;
+        if flush {
+            to.flush()?;
+        }
         thread::yield_now();
     }
 }
@@ -45,6 +48,7 @@ pub(crate) fn double_stream_copy(
     service: &Service,
     rdp_stream: rdp::RdpStream<'_>,
     tcp_stream: TcpStream,
+    flush: bool,
 ) -> Result<(), io::Error> {
     let client_id = rdp_stream.client_id();
 
@@ -59,7 +63,7 @@ pub(crate) fn double_stream_copy(
             ))
             .spawn_scoped(scope, move || {
                 let mut tcp_stream2 = io::BufWriter::new(tcp_stream2);
-                if let Err(e) = stream_copy(&mut rdp_stream_read, &mut tcp_stream2) {
+                if let Err(e) = stream_copy(&mut rdp_stream_read, &mut tcp_stream2, flush) {
                     crate::debug!("error: {e}");
                 } else {
                     crate::debug!("stopped");
@@ -73,7 +77,7 @@ pub(crate) fn double_stream_copy(
             .unwrap();
 
         let mut tcp_stream = io::BufReader::new(tcp_stream);
-        if let Err(e) = stream_copy(&mut tcp_stream, &mut rdp_stream_write) {
+        if let Err(e) = stream_copy(&mut tcp_stream, &mut rdp_stream_write, flush) {
             crate::debug!("error: {e}");
         } else {
             crate::debug!("stopped");
