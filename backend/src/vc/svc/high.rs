@@ -14,8 +14,9 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
     type Handle = Handle<'a>;
 
     fn load(libs: &'a vc::Libraries) -> Result<Self, vc::Error> {
+        #[cfg(target_os = "windows")]
         if let Some(citrix) = libs.citrix() {
-            unsafe {
+            return unsafe {
                 Ok(Self {
                     open: citrix.get("WFVirtualChannelOpen".as_bytes())?,
                     query: citrix.get("WFVirtualChannelQuery".as_bytes())?,
@@ -24,8 +25,11 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
                     close: citrix.get("WFVirtualChannelClose".as_bytes())?,
                 })
             }
-        } else if let Some(horizon) = libs.horizon() {
-            unsafe {
+        }
+
+        #[cfg(target_os = "windows")]
+        if let Some(horizon) = libs.horizon() {
+            return unsafe {
                 Ok(Self {
                     open: horizon.get("VDP_VirtualChannelOpen".as_bytes())?,
                     query: horizon.get("VDP_VirtualChannelQuery".as_bytes())?,
@@ -34,7 +38,9 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
                     close: horizon.get("VDP_VirtualChannelClose".as_bytes())?,
                 })
             }
-        } else if let Some(xrdp) = libs.xrdp() {
+        }
+
+        if let Some(xrdp) = libs.xrdp() {
             #[cfg(feature = "log")]
             {
                 common::debug!("initiate XRDP logging");

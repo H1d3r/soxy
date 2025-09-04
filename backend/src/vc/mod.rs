@@ -107,9 +107,9 @@ impl fmt::Display for Error {
 }
 
 pub(crate) struct Libraries {
-    #[cfg(feature = "svc")]
+    #[cfg(all(feature = "svc", target_os = "windows"))]
     vdp_rdpvcbridge: Option<libloading::Library>,
-    #[cfg(feature = "svc")]
+    #[cfg(all(feature = "svc", target_os = "windows"))]
     wfapi64: Option<libloading::Library>,
     #[cfg(target_os = "windows")]
     wtsapi32: Option<libloading::Library>,
@@ -117,12 +117,12 @@ pub(crate) struct Libraries {
 }
 
 impl Libraries {
-    #[cfg(feature = "svc")]
+    #[cfg(all(feature = "svc", target_os = "windows"))]
     pub(crate) fn horizon(&self) -> Option<&libloading::Library> {
         self.vdp_rdpvcbridge.as_ref()
     }
 
-    #[cfg(feature = "svc")]
+    #[cfg(all(feature = "svc", target_os = "windows"))]
     pub(crate) fn citrix(&self) -> Option<&libloading::Library> {
         self.wfapi64.as_ref()
     }
@@ -168,9 +168,9 @@ impl Libraries {
             common::info!("found libraries: {}", found.join(", "));
 
             Self {
-                #[cfg(feature = "svc")]
+                #[cfg(all(feature = "svc", target_os = "windows"))]
                 vdp_rdpvcbridge,
-                #[cfg(feature = "svc")]
+                #[cfg(all(feature = "svc", target_os = "windows"))]
                 wfapi64,
                 #[cfg(target_os = "windows")]
                 wtsapi32,
