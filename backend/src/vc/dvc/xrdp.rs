@@ -152,7 +152,7 @@ impl vc::Handle for Handle<'_> {
         }
     }
 
-    fn close(&self) -> Result<(), vc::Error> {
+    fn close(self) -> Result<(), vc::Error> {
         let ret = unsafe { (self.close)(self.wtshandle) };
         if ret == ws::Win32::Foundation::FALSE {
             let err = io::Error::last_os_error();

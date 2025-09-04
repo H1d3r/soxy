@@ -1,9 +1,17 @@
 use crate::vc;
 use std::{ffi, ops};
 
-mod high;
+#[cfg(not(target_os = "windows"))]
+mod high_linux;
+#[cfg(target_os = "windows")]
+mod high_windows;
 #[cfg(target_os = "windows")]
 mod low;
+
+#[cfg(not(target_os = "windows"))]
+use high_linux as high;
+#[cfg(target_os = "windows")]
+use high_windows as high;
 
 pub(crate) enum Svc<'a> {
     High(high::Svc<'a>),
@@ -61,7 +69,7 @@ impl vc::Handle for Handle<'_> {
         }
     }
 
-    fn close(&self) -> Result<(), vc::Error> {
+    fn close(self) -> Result<(), vc::Error> {
         match self {
             Self::High(handle) => handle.close(),
             #[cfg(target_os = "windows")]

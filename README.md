@@ -397,6 +397,8 @@ and to uninstall the Dynamic Virtual Channel:
 i686-pc-windows-gnu\soxyreg.exe dvc unregister
 ```
 
+Be careful, **only Static Virtual Channels** are supported by the Citrix
+Linux VDA.
 
 #### Configuration file
 
