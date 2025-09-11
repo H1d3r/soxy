@@ -14,9 +14,8 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
     type Handle = Handle<'a>;
 
     fn load(libs: &'a vc::Libraries) -> Result<Self, vc::Error> {
-        #[cfg(target_os = "windows")]
         if let Some(citrix) = libs.citrix() {
-            return unsafe {
+            unsafe {
                 Ok(Self {
                     open: citrix.get("WFVirtualChannelOpen".as_bytes())?,
                     query: citrix.get("WFVirtualChannelQuery".as_bytes())?,
@@ -25,49 +24,14 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
                     close: citrix.get("WFVirtualChannelClose".as_bytes())?,
                 })
             }
-        }
-
-        #[cfg(target_os = "windows")]
-        if let Some(horizon) = libs.horizon() {
-            return unsafe {
+        } else if let Some(horizon) = libs.horizon() {
+            unsafe {
                 Ok(Self {
                     open: horizon.get("VDP_VirtualChannelOpen".as_bytes())?,
                     query: horizon.get("VDP_VirtualChannelQuery".as_bytes())?,
                     read: horizon.get("VDP_VirtualChannelRead".as_bytes())?,
                     write: horizon.get("VDP_VirtualChannelWrite".as_bytes())?,
                     close: horizon.get("VDP_VirtualChannelClose".as_bytes())?,
-                })
-            }
-        }
-
-        if let Some(xrdp) = libs.xrdp() {
-            #[cfg(feature = "log")]
-            {
-                common::debug!("initiate XRDP logging");
-
-                let log_init = unsafe {
-                    xrdp.get::<fn(os::raw::c_int, *mut os::raw::c_void) -> *mut os::raw::c_void>(
-                        "log_config_init_for_console".as_bytes(),
-                    )?
-                };
-                let log_start = unsafe {
-                    xrdp.get::<fn(*mut os::raw::c_void)>("log_start_from_param".as_bytes())?
-                };
-
-                let lc = log_init(4, ptr::null_mut());
-
-                if !lc.is_null() {
-                    log_start(lc);
-                }
-            }
-
-            unsafe {
-                Ok(Self {
-                    open: xrdp.get("WTSVirtualChannelOpen".as_bytes())?,
-                    query: xrdp.get("WTSVirtualChannelQuery".as_bytes())?,
-                    read: xrdp.get("WTSVirtualChannelRead".as_bytes())?,
-                    write: xrdp.get("WTSVirtualChannelWrite".as_bytes())?,
-                    close: xrdp.get("WTSVirtualChannelClose".as_bytes())?,
                 })
             }
         } else {
@@ -199,7 +163,7 @@ impl vc::Handle for Handle<'_> {
         }
     }
 
-    fn close(&self) -> Result<(), vc::Error> {
+    fn close(self) -> Result<(), vc::Error> {
         let ret = unsafe { (self.close)(self.wtshandle) };
         if ret == ws::Win32::Foundation::FALSE {
             let err = io::Error::last_os_error();

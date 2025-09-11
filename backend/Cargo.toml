@@ -34,7 +34,7 @@ missing-errors-doc = "allow"
 name = "soxy"
 
 [lib]
-crate-type = [ "cdylib", "lib" ]
+crate-type = [ "cdylib", "rlib" ]
 name = "soxy"
 
 [profile.release]

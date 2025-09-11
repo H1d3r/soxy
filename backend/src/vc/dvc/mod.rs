@@ -61,7 +61,7 @@ impl vc::Handle for Handle<'_> {
         }
     }
 
-    fn close(&self) -> Result<(), vc::Error> {
+    fn close(self) -> Result<(), vc::Error> {
         match self {
             Self::Xrdp(handle) => handle.close(),
             #[cfg(target_os = "windows")]

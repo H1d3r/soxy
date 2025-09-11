@@ -246,7 +246,7 @@ impl vc::Handle for Handle<'_> {
         }
     }
 
-    fn close(&self) -> Result<(), vc::Error> {
+    fn close(self) -> Result<(), vc::Error> {
         let ret = unsafe { ws::Win32::Foundation::CloseHandle(self.filehandle) };
         if ret == ws::Win32::Foundation::FALSE {
             let err = io::Error::last_os_error();

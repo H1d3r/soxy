@@ -109,8 +109,8 @@ impl fmt::Display for Error {
 pub(crate) struct Libraries {
     #[cfg(all(feature = "svc", target_os = "windows"))]
     vdp_rdpvcbridge: Option<libloading::Library>,
-    #[cfg(all(feature = "svc", target_os = "windows"))]
-    wfapi64: Option<libloading::Library>,
+    #[cfg(feature = "svc")]
+    citrix: Option<libloading::Library>,
     #[cfg(target_os = "windows")]
     wtsapi32: Option<libloading::Library>,
     xrdpapi: Option<libloading::Library>,
@@ -122,9 +122,9 @@ impl Libraries {
         self.vdp_rdpvcbridge.as_ref()
     }
 
-    #[cfg(all(feature = "svc", target_os = "windows"))]
+    #[cfg(feature = "svc")]
     pub(crate) fn citrix(&self) -> Option<&libloading::Library> {
-        self.wfapi64.as_ref()
+        self.citrix.as_ref()
     }
 
     #[cfg(target_os = "windows")]
@@ -139,7 +139,10 @@ impl Libraries {
     pub(crate) fn load() -> Self {
         unsafe {
             common::trace!("trying to load Citrix library");
-            let wfapi64 = libloading::Library::new(libloading::library_filename("wfapi64")).ok();
+            #[cfg(target_os = "windows")]
+            let citrix = libloading::Library::new(libloading::library_filename("wfapi64")).ok();
+            #[cfg(not(target_os = "windows"))]
+            let citrix = libloading::Library::new(libloading::library_filename("winsta")).ok();
 
             common::trace!("trying to load Horizon library");
             let vdp_rdpvcbridge =
@@ -155,7 +158,7 @@ impl Libraries {
             };
 
             let found: Vec<&str> = vec![
-                wfapi64.as_ref().map(|_| "Citrix"),
+                citrix.as_ref().map(|_| "Citrix"),
                 vdp_rdpvcbridge.as_ref().map(|_| "Horizon"),
                 xrdpapi.as_ref().map(|_| "XRDP"),
                 #[cfg(target_os = "windows")]
@@ -170,8 +173,8 @@ impl Libraries {
             Self {
                 #[cfg(all(feature = "svc", target_os = "windows"))]
                 vdp_rdpvcbridge,
-                #[cfg(all(feature = "svc", target_os = "windows"))]
-                wfapi64,
+                #[cfg(feature = "svc")]
+                citrix,
                 #[cfg(target_os = "windows")]
                 wtsapi32,
                 xrdpapi,
@@ -258,7 +261,7 @@ pub(crate) trait Handle: Send + Sync {
     fn display_name(&self) -> &str;
     fn read(&self, data: &mut [u8]) -> Result<ops::Range<usize>, Error>;
     fn write(&self, data: &[u8]) -> Result<usize, Error>;
-    fn close(&self) -> Result<(), Error>;
+    fn close(self) -> Result<(), Error>;
 }
 
 pub(crate) enum GenericHandle<'a> {
@@ -296,7 +299,7 @@ impl Handle for GenericHandle<'_> {
         }
     }
 
-    fn close(&self) -> Result<(), Error> {
+    fn close(self) -> Result<(), Error> {
         match self {
             #[cfg(feature = "dvc")]
             Self::Dynamic(dvch) => dvch.close(),
