@@ -462,7 +462,7 @@ dependencies = [
 
 [[package]]
 name = "standalone"
-version = "4.1.1"
+version = "4.2.1"
 dependencies = [
  "common",
  "crossbeam-channel",
