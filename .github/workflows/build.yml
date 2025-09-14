@@ -3,7 +3,6 @@ name: Build for Linux, Windows and macOS
 
 on:
   push:
-    branches: [ main ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
