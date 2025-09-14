@@ -208,6 +208,21 @@ build-win7:
 		) ; \
 	done
 
+.PHONY: build-frontend-native
+build-frontend-native:
+	echo ; echo "# Building debug frontend ($(VC)) ($(SERVICES))" ; echo
+	(cd frontend && cargo build --features log,$(FEATURES_VC),$(FEATURES_SERVICES) && cd ..) || exit 1
+	echo ; echo "# Building release frontend ($(VC)) ($(SERVICES))" ; echo
+	(cd frontend && cargo build --release --features log,$(FEATURES_VC),$(FEATURES_SERVICES) && cd ..) || exit 1
+
+.PHONY: build-standalone-native
+build-standalone-native:
+	echo ; echo "# Building debug standalone ($(SERVICES))" ; echo
+	(cd standalone && cargo build --features log,$(FEATURES_SERVICES) && cd ..) || exit 1
+	echo ; echo "# Building release standalone ($(SERVICES))" ; echo
+	(cd standalone && cargo build --release --features log,$(FEATURES_SERVICES) && cd ..) || exit 1
+
+
 #############
 
 .PHONY: clippy
