@@ -77,6 +77,8 @@ fn bootstrap() -> Result<&'static config::Config, Error> {
 
     common::init_logs(config.log_level(), config.log_file());
 
+    common::log_package_infos!();
+
     common::debug!("bootstrapping frontend");
 
     Ok(CONFIG.get_or_init(|| config))

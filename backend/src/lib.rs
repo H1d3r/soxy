@@ -296,6 +296,8 @@ fn main_res(channel_name: [ffi::c_char; 8]) -> Result<(), Error> {
 pub fn main(channel_name: &str, level: common::Level) {
     common::init_logs(level, None);
 
+    common::log_package_infos!();
+
     common::info!("virtual channel name is {channel_name:?}");
 
     match common::virtual_channel_name(channel_name) {

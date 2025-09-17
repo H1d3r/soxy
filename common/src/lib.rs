@@ -23,7 +23,7 @@ mod socks5;
 #[cfg(feature = "service-stage0")]
 mod stage0;
 
-mod log;
+mod ilog;
 mod util;
 
 pub const VIRTUAL_CHANNEL_DEFAULT_NAME: &str = "SOXY";
@@ -113,4 +113,16 @@ pub fn init_logs(level: Level, file: Option<&String>) {
     }
 
     let _ = simplelog::CombinedLogger::init(loggers);
+}
+
+#[macro_export]
+macro_rules! log_package_infos {
+    () => {
+        #[cfg(feature = "log")]
+        log::info!(
+            "{} version {}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        );
+    };
 }

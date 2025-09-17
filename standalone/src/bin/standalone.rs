@@ -18,6 +18,8 @@ fn main() {
         return;
     }
 
+    common::log_package_infos!();
+
     if let Err(e) = backend_channel.run(service::Kind::Backend, &frontend_to_backend_receive) {
         common::error!("backend channel stopped: {e}");
     } else {
