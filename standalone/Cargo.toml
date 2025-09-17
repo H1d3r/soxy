@@ -2,6 +2,9 @@
 name = "standalone"
 version = "4.2.2"
 edition = "2024"
+authors = ["Airbus Seclab <seclab+soxy@airbus.com>"]
+repository = "https://github.com/airbus-seclab/soxy"
+license-file = "../LICENSE"
 
 [dependencies]
 frontend = { path = "../frontend" }
