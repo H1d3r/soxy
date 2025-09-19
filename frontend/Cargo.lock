@@ -181,7 +181,7 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
 name = "common"
-version = "4.2.2"
+version = "4.3.1"
 dependencies = [
  "copyrs",
  "crossbeam-channel",
@@ -258,7 +258,7 @@ checksum = "1ced73b1dacfc750a6db6c0a0c3a3853c8b41997e2e2c563dc90804ae6867959"
 
 [[package]]
 name = "frontend"
-version = "4.2.2"
+version = "4.3.1"
 dependencies = [
  "bindgen",
  "common",
@@ -549,7 +549,7 @@ dependencies = [
 
 [[package]]
 name = "soxyreg"
-version = "4.2.2"
+version = "4.3.1"
 dependencies = [
  "clap",
  "winreg",

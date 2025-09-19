@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "backend"
-version = "4.2.2"
+version = "4.3.1"
 dependencies = [
  "bindgen",
  "common",
@@ -97,7 +97,7 @@ dependencies = [
 
 [[package]]
 name = "common"
-version = "4.2.2"
+version = "4.3.1"
 dependencies = [
  "copyrs",
  "crossbeam-channel",
