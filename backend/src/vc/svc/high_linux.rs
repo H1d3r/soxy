@@ -390,6 +390,8 @@ impl vc::Handle for Handle<'_> {
                     }
                     return Err(vc::Error::WriteFailed(ctx_status_error_string(ret)));
                 }
+
+                usize::try_from(written).map_err(|e| vc::Error::WriteFailed(e.to_string()))
             }
             Self::Standard { handle, write, .. } => loop {
                 let ret = unsafe { (write)(*handle, data.as_ptr(), to_write, &raw mut written) };
@@ -406,10 +408,10 @@ impl vc::Handle for Handle<'_> {
                     let err = io::Error::last_os_error();
                     return Err(vc::Error::WriteFailed(err.to_string()));
                 }
+
+                return usize::try_from(written).map_err(|e| vc::Error::WriteFailed(e.to_string()));
             },
         }
-
-        usize::try_from(written).map_err(|e| vc::Error::WriteFailed(e.to_string()))
     }
 
     fn close(self) -> Result<(), vc::Error> {
