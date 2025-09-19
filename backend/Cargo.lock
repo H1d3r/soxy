@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "backend"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "bindgen",
  "common",
@@ -97,7 +97,7 @@ dependencies = [
 
 [[package]]
 name = "common"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "copyrs",
  "crossbeam-channel",
@@ -186,6 +186,12 @@ checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
 dependencies = [
  "either",
 ]
+
+[[package]]
+name = "itoa"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
 name = "lazy-bytes-cast"
@@ -440,11 +446,12 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.43"
+version = "0.3.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83bde6f1ec10e72d583d91623c939f623002284ef622b87de38cfd546cbf2031"
+checksum = "91e7d9e3bb61134e77bde20dd4825b97c010155709965fedf0f49bb138e52a9d"
 dependencies = [
  "deranged",
+ "itoa",
  "libc",
  "num-conv",
  "num_threads",
