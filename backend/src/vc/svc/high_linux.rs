@@ -1,5 +1,5 @@
 use crate::vc;
-use std::{ffi, io, ops, os, ptr, thread};
+use std::{ffi, io, ops, os, ptr, thread, time};
 use windows_sys as ws;
 
 type SessionId = os::raw::c_uint;
@@ -348,17 +348,29 @@ impl vc::Handle for Handle<'_> {
                     return Err(vc::Error::ReadFailed(ctx_status_error_string(ret)));
                 }
             }
-            Self::Standard { handle, read, .. } => {
-                let timeout = os::raw::c_ulong::MAX;
+            Self::Standard { handle, read, .. } => loop {
+                let timeout = 5000;
 
                 let ret =
                     unsafe { (read)(*handle, timeout, data.as_mut_ptr(), to_read, &raw mut bread) };
+
+                common::trace!(
+                    "read returned ret == {ret} (== {}) bread = {bread}",
+                    ws::Win32::Foundation::FALSE
+                );
 
                 if ret == ws::Win32::Foundation::FALSE {
                     let err = io::Error::last_os_error();
                     return Err(vc::Error::ReadFailed(err.to_string()));
                 }
-            }
+
+                if bread > 0 {
+                    break;
+                }
+
+                common::trace!("read 0 byte without error, sleeping a bit");
+                thread::sleep(time::Duration::from_millis(200));
+            },
         }
 
         let read = usize::try_from(bread).map_err(|e| vc::Error::ReadFailed(e.to_string()))?;
@@ -390,28 +402,35 @@ impl vc::Handle for Handle<'_> {
                     }
                     return Err(vc::Error::WriteFailed(ctx_status_error_string(ret)));
                 }
-
-                usize::try_from(written).map_err(|e| vc::Error::WriteFailed(e.to_string()))
             }
             Self::Standard { handle, write, .. } => loop {
                 let ret = unsafe { (write)(*handle, data.as_ptr(), to_write, &raw mut written) };
 
                 if ret == ws::Win32::Foundation::FALSE || written != to_write {
+                    common::trace!(
+                        "write returned ret == {ret} (== {}?) written == {written} to_write == {to_write}",
+                        ws::Win32::Foundation::FALSE
+                    );
+
                     if written == 0 {
                         common::trace!("send buffer seems full, yield now");
                         thread::yield_now();
                         continue;
                     }
+
                     if written != to_write {
                         common::error!("partial write: {written} / {to_write}");
                     }
+
                     let err = io::Error::last_os_error();
                     return Err(vc::Error::WriteFailed(err.to_string()));
                 }
 
-                return usize::try_from(written).map_err(|e| vc::Error::WriteFailed(e.to_string()));
+                break;
             },
         }
+
+        usize::try_from(written).map_err(|e| vc::Error::WriteFailed(e.to_string()))
     }
 
     fn close(self) -> Result<(), vc::Error> {

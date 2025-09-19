@@ -603,11 +603,8 @@ Note that in both cases, you have to reboot the Citrix host afterward.
 
 ### XRDP
 
-If you get an error like `failed to open channel handle: virtual channel open failed`
-it  means there are restrictions on XRDP host virtual channels. To fix this,
-if you have (local) administrator privileges, you can disable XRDP restrictions
-for this very specific virtual channel. Edit `/etc/xrdp/xrdp.ini`, look for `[Channels]`
-entry and add below `SOXY=true`.
+Dynamic virtual channel with XRDP backend is experimental; please 
+use static virtual channel which is working well.
 
 The `backend` needs to be able to load `libxrdpapi.so` from the library path.
 On most Linux distributions, it is not by default. You can add it on the
@@ -616,6 +613,20 @@ command line, e.g. for `x86_64` on Debian:
 ```bash
 LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/ soxy
 ```
+
+If you get an error like `failed to open channel handle: virtual
+channel open failed` it means there are restrictions on XRDP host
+virtual channels. To fix this, if you have (local) administrator
+privileges, you can disable XRDP restrictions for this very specific
+virtual channel. Edit `/etc/xrdp/xrdp.ini`, look for `[Channels]`
+entry and add below `SOXY=true`.
+
+Before version 0.10, you may not have such error and the backend could
+seem to be working properly (channel opening is OK) but no service is
+working. In this case, please have a look at XRDP logs (`journalctl -u
+xdrp.service`) to see if there is a message like `Received a message
+for the disabled channel`. If this is the case, you need to whitelist
+the `SOXY` channel as described above.
 
 ## 🚧 Contributing
 
