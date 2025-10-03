@@ -11,8 +11,8 @@ TARGETS_SOXYREG ?= i686-pc-windows-gnu x86_64-pc-windows-gnu
 RELEASE_DIR := release
 DEBUG_DIR := debug
 
-BACKEND_RELEASE_RUST_FLAGS := --remap-path-prefix ${HOME}=/foo -Zlocation-detail=none ###-C target-feature=+crt-static
-BACKEND_RELEASE_BUILD_FLAGS := -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort
+BACKEND_RELEASE_RUST_FLAGS := --remap-path-prefix ${HOME}=/foo -Zlocation-detail=none -Zunstable-options -Cpanic=immediate-abort ##-C target-feature=+crt-static
+BACKEND_RELEASE_BUILD_FLAGS := -Z build-std=std,panic_abort
 
 TOOLCHAIN_FRONTEND_DEBUG ?= stable
 TOOLCHAIN_FRONTEND_RELEASE ?= stable
