@@ -136,7 +136,7 @@ to include services needed only by editing the `SERVICES`
 variable at the beginning of the `Makefile`.
 
 ```Makefile
-SERVICES ?= clipboard command ftp input socks5 stage0
+SERVICES ?= clipboard command forward ftp input socks5 stage0
 ```
 
 ##### Make Targets
