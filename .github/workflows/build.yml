@@ -78,6 +78,17 @@ jobs:
             TARGETS_SOXYREG="i686-pc-windows-gnullvm x86_64-pc-windows-gnullvm" \
             make setup debug release
 
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - name: Add win7 toolchain env vars
         run: |
           {
