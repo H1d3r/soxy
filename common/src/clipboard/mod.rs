@@ -9,6 +9,7 @@ mod frontend;
 mod protocol;
 
 pub(crate) static SERVICE: service::Service = service::Service {
+    internal: false,
     name: "clipboard",
     #[cfg(feature = "frontend")]
     frontend: Some(sfrontend::Frontend {

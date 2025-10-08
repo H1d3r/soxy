@@ -6,6 +6,8 @@ use crate::{api, rdp};
 use crate::clipboard;
 #[cfg(feature = "service-command")]
 use crate::command;
+#[cfg(feature = "service-forward")]
+use crate::forward;
 #[cfg(feature = "service-ftp")]
 use crate::ftp;
 #[cfg(feature = "service-input")]
@@ -119,6 +121,7 @@ pub(crate) struct Backend {
 }
 
 pub struct Service {
+    pub(crate) internal: bool,
     pub(crate) name: &'static str,
     #[cfg(feature = "frontend")]
     pub(crate) frontend: Option<frontend::Frontend>,
@@ -127,6 +130,10 @@ pub struct Service {
 }
 
 impl Service {
+    pub const fn internal(&self) -> bool {
+        self.internal
+    }
+
     pub const fn name(&self) -> &'static str {
         self.name
     }
@@ -167,10 +174,12 @@ pub static SERVICES: &[&Service] = &[
     &clipboard::SERVICE,
     #[cfg(feature = "service-command")]
     &command::SERVICE,
-    #[cfg(feature = "service-input")]
-    &input::SERVICE,
+    #[cfg(feature = "service-forward")]
+    &forward::SERVICE,
     #[cfg(feature = "service-ftp")]
     &ftp::SERVICE,
+    #[cfg(feature = "service-input")]
+    &input::SERVICE,
     #[cfg(feature = "service-socks5")]
     &socks5::SERVICE,
     #[cfg(feature = "service-stage0")]

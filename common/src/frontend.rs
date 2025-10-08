@@ -5,6 +5,7 @@ use std::{io, net, thread};
 pub struct FrontendTcpServer {
     service: &'static service::Service,
     server: net::TcpListener,
+    custom_data: Option<String>,
     pub(crate) ip: net::IpAddr,
 }
 
@@ -13,11 +14,21 @@ impl FrontendTcpServer {
         self.service
     }
 
+    pub(crate) const fn custom_data(&self) -> Option<&String> {
+        self.custom_data.as_ref()
+    }
+
     pub fn bind(
         service: &'static service::Service,
         tcp: net::SocketAddr,
+        custom_data: Option<String>,
     ) -> Result<Self, io::Error> {
-        crate::info!("binding {service} clients on {tcp}");
+        let data = match custom_data.as_ref() {
+            Some(data) => format!(" ({data})"),
+            None => String::new(),
+        };
+
+        crate::info!("binding {service}{} clients on {tcp}", data);
 
         let server = net::TcpListener::bind(tcp)?;
         let ip = server.local_addr()?.ip();
@@ -25,6 +36,7 @@ impl FrontendTcpServer {
         Ok(Self {
             service,
             server,
+            custom_data,
             ip,
         })
     }

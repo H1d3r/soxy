@@ -52,6 +52,7 @@ codegen-units = 1
 log = [ "common/log", "dep:log" ]
 service-clipboard = [ "common/service-clipboard" ]
 service-command = [ "common/service-command" ]
+service-forward = [ "common/service-forward" ]
 service-ftp = [ "common/service-ftp" ]
 service-input = [ "common/service-input" ]
 service-socks5 = [ "common/service-socks5" ]

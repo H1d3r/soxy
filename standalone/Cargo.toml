@@ -33,6 +33,7 @@ path = "src/bin/standalone.rs"
 log = [ "dep:log", "common/log", "frontend/log" ]
 service-clipboard = [ "frontend/service-clipboard" ]
 service-command = [ "frontend/service-command" ]
+service-forward = [ "frontend/service-forward" ]
 service-ftp = [ "frontend/service-ftp" ]
 service-input = [ "frontend/service-input" ]
 service-socks5 = [ "frontend/service-socks5" ]

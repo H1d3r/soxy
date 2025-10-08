@@ -16,6 +16,8 @@ pub mod service;
 mod clipboard;
 #[cfg(feature = "service-command")]
 mod command;
+#[cfg(feature = "service-forward")]
+pub mod forward;
 #[cfg(feature = "service-ftp")]
 mod ftp;
 #[cfg(feature = "service-socks5")]

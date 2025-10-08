@@ -7,6 +7,7 @@ use std::{fmt, time};
 mod frontend;
 
 pub(crate) static SERVICE: service::Service = service::Service {
+    internal: false,
     name: "input",
     #[cfg(feature = "frontend")]
     frontend: Some(sfrontend::Frontend {

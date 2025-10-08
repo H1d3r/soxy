@@ -1,4 +1,4 @@
-SERVICES ?= clipboard command ftp input socks5 stage0
+SERVICES ?= clipboard command forward ftp input socks5 stage0
 
 VC ?= dvc svc
 

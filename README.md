@@ -22,7 +22,9 @@ a common protocol. At the time of writing, soxy provides:
 - a telnet interface to read/write the clipboard of the remote
   machine;
 - a SOCKS5 proxy which permits to open connections on client's side as if it was
-  opened in the remote machine.
+  opened in the remote machine;
+- a port forwarding to bind TCP ports on client's side which will
+  connect to configuration defined hosts and ports from the remote machine.
 
 soxy is a more stable, complete and modular alternative to existing tools such
 as [SocksOverRDP](https://github.com/nccgroup/SocksOverRDP),
@@ -458,6 +460,18 @@ name = "stage0"
 #Disable this service
 enabled = false
 port = 1082
+
+#Examples of port forwarding configuration entries
+
+[[forward]]
+ip = "127.0.0.1"
+port = 2222
+destination = "localhost:22"
+
+[[forward]]
+ip = "127.0.0.1"
+port = 8080
+destination = "localhost:80"
 ```
 
 

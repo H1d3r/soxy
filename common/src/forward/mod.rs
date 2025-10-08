@@ -2,19 +2,24 @@
 use crate::frontend as sfrontend;
 use crate::service;
 
+#[cfg(feature = "backend")]
+mod backend;
 #[cfg(feature = "frontend")]
 mod frontend;
+mod protocol;
 
-pub(crate) static SERVICE: service::Service = service::Service {
-    internal: false,
-    name: "stage0",
+pub static SERVICE: service::Service = service::Service {
+    internal: true,
+    name: "forward",
     #[cfg(feature = "frontend")]
     frontend: Some(sfrontend::Frontend {
         tcp: Some(sfrontend::FrontendTcp {
-            default_port: 1082,
+            default_port: 0,
             handler: frontend::tcp_handler,
         }),
     }),
     #[cfg(feature = "backend")]
-    backend: None,
+    backend: Some(service::Backend {
+        handler: backend::handler,
+    }),
 };

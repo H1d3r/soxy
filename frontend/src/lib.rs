@@ -94,27 +94,65 @@ fn start_res(
         vec![],
         |mut servers, service_conf| match service::lookup(service_conf.name.as_str()) {
             None => {
-                common::warn!("unknown service {}", service_conf.name);
+                common::error!("unknown service {}", service_conf.name);
                 Ok(servers)
             }
-            Some(service) => match service.frontend().and_then(frontend::Frontend::tcp) {
-                None => Ok::<_, Error>(servers),
-                Some(frontend::FrontendTcp { default_port, .. }) => {
-                    let ip = net::IpAddr::from_str(
-                        &service_conf.ip.clone().unwrap_or(config.ip.clone()),
-                    )
-                    .map_err(|e| Error::Binding(e.to_string()))?;
-                    let port = service_conf.port.unwrap_or(*default_port);
-                    let sockaddr = net::SocketAddr::new(ip, port);
-
-                    let server = frontend::FrontendTcpServer::bind(service, sockaddr)
-                        .map_err(|e| Error::Binding(e.to_string()))?;
-
-                    servers.push(server);
-
+            Some(service) => {
+                if service.internal() {
+                    common::error!("service {} is an internal service", service_conf.name);
                     Ok(servers)
+                } else {
+                    match service.frontend().and_then(frontend::Frontend::tcp) {
+                        None => Ok::<_, Error>(servers),
+                        Some(frontend::FrontendTcp { default_port, .. }) => {
+                            let ip = net::IpAddr::from_str(
+                                &service_conf.ip.clone().unwrap_or(config.ip.clone()),
+                            )
+                            .map_err(|e| Error::Binding(e.to_string()))?;
+                            let port = service_conf.port.unwrap_or(*default_port);
+                            let sockaddr = net::SocketAddr::new(ip, port);
+
+                            let server = frontend::FrontendTcpServer::bind(service, sockaddr, None)
+                                .map_err(|e| Error::Binding(e.to_string()))?;
+
+                            servers.push(server);
+
+                            Ok(servers)
+                        }
+                    }
                 }
-            },
+            }
+        },
+    )?;
+
+    #[cfg(not(feature = "service-forward"))]
+    {
+        if 0 < config.forward.len() {
+            common::error!(
+                "ignoring port forwarding entries has support of port forwarding is not enabled"
+            );
+        }
+    }
+
+    #[cfg(feature = "service-forward")]
+    let servers = config.forward.iter().filter(|s| s.enabled).try_fold(
+        servers,
+        |mut servers, forward_conf| {
+            let ip = net::IpAddr::from_str(&forward_conf.ip)
+                .map_err(|e| Error::Binding(e.to_string()))?;
+            let port = forward_conf.port;
+            let sockaddr = net::SocketAddr::new(ip, port);
+
+            let server = frontend::FrontendTcpServer::bind(
+                &common::forward::SERVICE,
+                sockaddr,
+                Some(forward_conf.destination.clone()),
+            )
+            .map_err(|e| Error::Binding(e.to_string()))?;
+
+            servers.push(server);
+
+            Ok::<_, Error>(servers)
         },
     )?;
 

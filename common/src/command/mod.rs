@@ -8,6 +8,7 @@ mod backend;
 mod frontend;
 
 pub(crate) static SERVICE: service::Service = service::Service {
+    internal: false,
     name: "command",
     #[cfg(feature = "frontend")]
     frontend: Some(sfrontend::Frontend {

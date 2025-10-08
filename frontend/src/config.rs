@@ -92,9 +92,22 @@ pub(crate) struct Service {
     pub port: Option<u16>,
 }
 
+#[derive(serde::Deserialize, serde::Serialize)]
+pub(crate) struct Forward {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub ip: String,
+    #[serde(default)]
+    pub port: u16,
+    #[serde(default)]
+    pub destination: String,
+}
+
 fn default_services() -> Vec<Service> {
     service::SERVICES
         .iter()
+        .filter(|s| !s.internal())
         .map(|s| Service {
             name: s.name().to_string(),
             enabled: true,
@@ -113,6 +126,8 @@ pub(crate) struct Config {
     pub log: Log,
     #[serde(default = "default_services")]
     pub services: Vec<Service>,
+    #[serde(default)]
+    pub forward: Vec<Forward>,
 }
 
 impl Default for Config {
@@ -122,6 +137,7 @@ impl Default for Config {
             ip: "127.0.0.1".into(),
             log: Log::default(),
             services: default_services(),
+            forward: vec![],
         }
     }
 }
