@@ -127,7 +127,7 @@ pub(crate) struct Config {
     #[serde(default = "default_services")]
     pub services: Vec<Service>,
     #[serde(default)]
-    pub forward: Vec<Forward>,
+    pub forward: Option<Vec<Forward>>,
 }
 
 impl Default for Config {
@@ -137,7 +137,7 @@ impl Default for Config {
             ip: "127.0.0.1".into(),
             log: Log::default(),
             services: default_services(),
-            forward: vec![],
+            forward: None,
         }
     }
 }

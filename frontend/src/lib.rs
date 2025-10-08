@@ -135,26 +135,29 @@ fn start_res(
     }
 
     #[cfg(feature = "service-forward")]
-    let servers = config.forward.iter().filter(|s| s.enabled).try_fold(
-        servers,
-        |mut servers, forward_conf| {
-            let ip = net::IpAddr::from_str(&forward_conf.ip)
+    let servers = match config.forward.as_ref() {
+        None => servers,
+        Some(forwards) => forwards.iter().filter(|s| s.enabled).try_fold(
+            servers,
+            |mut servers, forward_conf| {
+                let ip = net::IpAddr::from_str(&forward_conf.ip)
+                    .map_err(|e| Error::Binding(e.to_string()))?;
+                let port = forward_conf.port;
+                let sockaddr = net::SocketAddr::new(ip, port);
+
+                let server = frontend::FrontendTcpServer::bind(
+                    &common::forward::SERVICE,
+                    sockaddr,
+                    Some(forward_conf.destination.clone()),
+                )
                 .map_err(|e| Error::Binding(e.to_string()))?;
-            let port = forward_conf.port;
-            let sockaddr = net::SocketAddr::new(ip, port);
 
-            let server = frontend::FrontendTcpServer::bind(
-                &common::forward::SERVICE,
-                sockaddr,
-                Some(forward_conf.destination.clone()),
-            )
-            .map_err(|e| Error::Binding(e.to_string()))?;
+                servers.push(server);
 
-            servers.push(server);
-
-            Ok::<_, Error>(servers)
-        },
-    )?;
+                Ok::<_, Error>(servers)
+            },
+        )?,
+    };
 
     thread::Builder::new()
         .name("frontend".into())
