@@ -225,8 +225,8 @@ build-standalone-native:
 
 #############
 
-.PHONY: clippy
-clippy:
+.PHONY: check clippy
+check clippy:
 	@for t in $(TARGETS_FRONTEND) ; do \
 		echo ; echo "# Clippy on frontend for $$t with $(TOOLCHAIN_FRONTEND_DEBUG)" ; echo ; \
 		(cd common && cargo +$(TOOLCHAIN_FRONTEND_DEBUG) $@ --features frontend,log,$(FEATURES_SERVICES) --target $$t && cd ..) || exit 1 ; \
