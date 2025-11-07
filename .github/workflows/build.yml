@@ -167,7 +167,7 @@ jobs:
 
   build-macos-x86_64:
     name: Build for macOS x86_64
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
 
