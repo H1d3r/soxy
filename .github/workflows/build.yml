@@ -215,10 +215,10 @@ jobs:
         run: |
           mkdir -p debug/soxy-debug-${{ env.SUFFIX }}
           mv artifacts/debug/* debug/soxy-debug-${{ env.SUFFIX }}/
-          cp LICENSE README.md debug/soxy-debug-${{ env.SUFFIX }}/
+          cp -r LICENSE README.md tools debug/soxy-debug-${{ env.SUFFIX }}/
           mkdir -p release/soxy-release-${{ env.SUFFIX }}
           mv artifacts/release/* release/soxy-release-${{ env.SUFFIX }}/
-          cp LICENSE README.md release/soxy-release-${{ env.SUFFIX }}/
+          cp -r LICENSE README.md tools release/soxy-release-${{ env.SUFFIX }}/
 
       - name: Upload debug artifacts
         uses: actions/upload-artifact@v4
