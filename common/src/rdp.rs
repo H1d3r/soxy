@@ -50,7 +50,7 @@ struct Handle<'a> {
     channel: &'a channel::Channel,
     service: &'a service::Service,
     client_id: api::ClientId,
-    state: sync::Arc<sync::RwLock<State>>,
+    state: sync::RwLock<State>,
 }
 
 impl<'a> Handle<'a> {
@@ -64,23 +64,18 @@ impl<'a> Handle<'a> {
             channel,
             service,
             client_id,
-            state: sync::Arc::new(sync::RwLock::new(State::ReadWrite(from_rdp))),
+            state: sync::RwLock::new(State::ReadWrite(from_rdp)),
         }
     }
 
     fn send(&self, chunk: api::Chunk) -> Result<(), api::Error> {
         self.state.read().unwrap().will_send()?;
 
-        let is_end = matches!(chunk.chunk_type()?, api::ChunkType::End);
-
-        crate::trace!("RDP send {chunk}");
-
-        self.channel.send_chunk(chunk)?;
-
-        if is_end {
+        if matches!(chunk.chunk_type()?, api::ChunkType::End) {
             crate::debug!("RDP send End for {:x}", self.client_id);
 
             let mut state = self.state.write().unwrap();
+
             match &mut *state {
                 State::ReadWrite(from_rdp) => {
                     *state = State::ReadOnly(from_rdp.clone());
@@ -91,6 +86,10 @@ impl<'a> Handle<'a> {
                 State::ReadOnly(_) | State::Closed => (),
             }
         }
+
+        crate::trace!("RDP send {chunk}");
+
+        self.channel.send_chunk(chunk)?;
 
         Ok(())
     }
@@ -104,7 +103,9 @@ impl<'a> Handle<'a> {
 
         if matches!(chunk_type, api::ChunkType::End) {
             crate::debug!("RDP received End for {:x}", self.client_id);
+
             let mut state = self.state.write().unwrap();
+
             match &mut *state {
                 State::ReadWrite(_) => {
                     *state = State::WriteOnly;
