@@ -154,8 +154,8 @@ impl<'a> Handle<'a> {
             },
         }
 
-        if send_end {
-            let _ = self.channel.send_chunk(api::Chunk::end(self.client_id));
+        if send_end && let Err(e) = self.channel.send_chunk(api::Chunk::end(self.client_id)) {
+            crate::debug!("failed to send end for {}: {e}", self.client_id);
         }
     }
 }

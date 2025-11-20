@@ -20,7 +20,7 @@ pub enum Error {
     Io(io::Error),
     InvalidChunkType(u8),
     InvalidChunkSize(usize),
-    PipelineBroken,
+    PipelineBroken(String),
 }
 
 impl fmt::Display for Error {
@@ -33,7 +33,7 @@ impl fmt::Display for Error {
             Self::InvalidChunkSize(s) => {
                 write!(fmt, "invalid chunk size: 0x{s:x}")
             }
-            Self::PipelineBroken => write!(fmt, "broken pipeline"),
+            Self::PipelineBroken(m) => write!(fmt, "broken pipeline: {m}"),
         }
     }
 }
@@ -45,14 +45,14 @@ impl From<io::Error> for Error {
 }
 
 impl From<crossbeam_channel::RecvError> for Error {
-    fn from(_e: crossbeam_channel::RecvError) -> Self {
-        Self::PipelineBroken
+    fn from(e: crossbeam_channel::RecvError) -> Self {
+        Self::PipelineBroken(e.to_string())
     }
 }
 
 impl<T> From<crossbeam_channel::SendError<T>> for Error {
-    fn from(_e: crossbeam_channel::SendError<T>) -> Self {
-        Self::PipelineBroken
+    fn from(e: crossbeam_channel::SendError<T>) -> Self {
+        Self::PipelineBroken(e.to_string())
     }
 }
 

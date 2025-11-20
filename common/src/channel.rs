@@ -35,7 +35,13 @@ impl Channel {
     }
 
     pub(crate) fn send_chunk(&self, chunk: api::Chunk) -> Result<(), api::Error> {
-        crate::trace!("CHANNEL send {chunk}");
+        if matches!(
+            chunk.chunk_type()?,
+            api::ChunkType::Start | api::ChunkType::End
+        ) {
+            crate::debug!("CHANNEL send {chunk} len = {}", chunk.payload().len());
+        }
+        crate::trace!("CHANNEL send {chunk} len = {}", chunk.payload().len());
         Ok(self.to_rdp.send(api::Message::Chunk(chunk))?)
     }
 
@@ -97,9 +103,12 @@ impl Channel {
             hash_map::Entry::Vacant(ve) => match service::lookup_bytes(payload) {
                 Err(service) => {
                     crate::error!("new client for unknown service {service}!");
-                    let _ = self
+                    if let Err(e) = self
                         .to_rdp
-                        .send(api::Message::Chunk(api::Chunk::end(client_id)));
+                        .send(api::Message::Chunk(api::Chunk::end(client_id)))
+                    {
+                        crate::debug!("failed to send end for {client_id}: {e}");
+                    }
                 }
                 Ok(service) => {
                     crate::debug!("new {service} client {client_id:x}");

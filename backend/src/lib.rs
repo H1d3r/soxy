@@ -63,6 +63,13 @@ where
             api::Message::Chunk(chunk) => {
                 common::trace!("{chunk}");
 
+                if matches!(
+                    chunk.chunk_type()?,
+                    api::ChunkType::Start | api::ChunkType::End
+                ) {
+                    common::debug!("BACKEND send {chunk}");
+                }
+
                 let data = chunk.serialized();
 
                 match handle.read().unwrap().as_ref() {
