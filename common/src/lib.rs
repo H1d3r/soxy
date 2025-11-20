@@ -94,7 +94,8 @@ pub fn init_logs(level: Level, file: Option<&String>) {
         .set_thread_level(simplelog::LevelFilter::Error)
         .set_thread_mode(simplelog::ThreadLogMode::Names)
         .set_time_format_rfc2822()
-        .set_time_offset_to_local().unwrap_or_else(|e| e)
+        .set_time_offset_to_local()
+        .unwrap_or_else(|e| e)
         .build();
 
     let mut loggers: Vec<Box<dyn simplelog::SharedLogger>> = vec![simplelog::TermLogger::new(
