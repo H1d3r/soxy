@@ -36,8 +36,7 @@ fn generic_channel_init_event(
         }
         headers::RDP_SVC_CHANNEL_EVENT_CHANNEL_EVENT_CONNECTED => {
             common::debug!("channel_init_event called (event = CONNECTED)");
-            let mut gwrite_ack = WRITE_ACK.write().unwrap();
-            let _ = gwrite_ack.replace(WriteStatus {
+            let _ = WRITE_ACK.write().unwrap().replace(WriteStatus {
                 sent: sync::RwLock::new(collections::HashMap::new()),
                 can_send: semaphore::Semaphore::new(vc::svc::MAX_CHUNKS_IN_FLIGHT),
                 counter: sync::atomic::AtomicU32::new(0),
@@ -81,8 +80,7 @@ fn generic_channel_init_event(
                 .send(control::FromVc::Terminated)
                 .expect("internal error: failed to send control message");
 
-            let mut gwrite_ack = WRITE_ACK.write().unwrap();
-            let _ = gwrite_ack.take();
+            let _ = WRITE_ACK.write().unwrap().take();
         }
         _ => {
             common::error!("unknown channel_init_event {event}!");

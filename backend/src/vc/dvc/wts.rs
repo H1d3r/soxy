@@ -86,40 +86,8 @@ impl<'a> vc::VirtualChannel<'a> for Dvc<'a> {
         }
         common::debug!("duplicated filehandle = {dfilehandle:?}");
 
-        let h_event = unsafe {
-            ws::Win32::System::Threading::CreateEventA(
-                ptr::null(),
-                ws::Win32::Foundation::FALSE,
-                ws::Win32::Foundation::FALSE,
-                ptr::null(),
-            )
-        };
-
-        if h_event.is_null() {
-            let err = io::Error::last_os_error();
-            return Err(vc::Error::CreateEventFailed(err.to_string()));
-        }
-
-        let anonymous = ws::Win32::System::IO::OVERLAPPED_0 {
-            Pointer: ptr::null_mut(),
-        };
-
-        let read_overlapped = ws::Win32::System::IO::OVERLAPPED {
-            Internal: 0,
-            InternalHigh: 0,
-            Anonymous: anonymous,
-            hEvent: h_event,
-        };
-
-        let write_overlapped = ws::Win32::System::IO::OVERLAPPED {
-            Internal: 0,
-            InternalHigh: 0,
-            Anonymous: anonymous,
-            hEvent: ptr::null_mut(),
-        };
-
-        let read_overlapped = cell::RefCell::new(read_overlapped);
-        let write_overlapped = cell::RefCell::new(write_overlapped);
+        let read_overlapped = cell::RefCell::new(create_io_overlapped()?);
+        let write_overlapped = cell::RefCell::new(create_io_overlapped()?);
 
         let name = format!("DVC(WTS) {:?}", unsafe {
             ffi::CStr::from_ptr(name.as_ptr())
@@ -134,6 +102,33 @@ impl<'a> vc::VirtualChannel<'a> for Dvc<'a> {
             write_overlapped,
         })
     }
+}
+
+fn create_io_overlapped() -> Result<ws::Win32::System::IO::OVERLAPPED, vc::Error> {
+    let h_event = unsafe {
+        ws::Win32::System::Threading::CreateEventA(
+            ptr::null(),
+            ws::Win32::Foundation::FALSE,
+            ws::Win32::Foundation::FALSE,
+            ptr::null(),
+        )
+    };
+
+    if h_event.is_null() {
+        let err = io::Error::last_os_error();
+        return Err(vc::Error::CreateEventFailed(err.to_string()));
+    }
+
+    let anonymous = ws::Win32::System::IO::OVERLAPPED_0 {
+        Pointer: ptr::null_mut(),
+    };
+
+    Ok(ws::Win32::System::IO::OVERLAPPED {
+        Internal: 0,
+        InternalHigh: 0,
+        Anonymous: anonymous,
+        hEvent: h_event,
+    })
 }
 
 pub(crate) struct Handle<'a> {

@@ -49,7 +49,7 @@ impl fmt::Display for Error {
     }
 }
 
-const TO_VC_CHANNEL_SIZE: usize = 128;
+const TO_VC_CHANNEL_SIZE: usize = 64;
 
 fn backend_to_frontend<H>(
     handle: &sync::RwLock<Option<H>>,
