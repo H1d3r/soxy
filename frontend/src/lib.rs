@@ -127,7 +127,7 @@ fn start_res(
 
     #[cfg(not(feature = "service-forward"))]
     {
-        if 0 < config.forward.len() {
+        if config.forward.as_ref().is_some_and(|v| !v.is_empty()) {
             common::error!(
                 "ignoring port forwarding entries has support of port forwarding is not enabled"
             );

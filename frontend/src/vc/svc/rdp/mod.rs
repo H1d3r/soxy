@@ -2,7 +2,7 @@ use super::semaphore;
 #[cfg(feature = "service-input")]
 use crate::client;
 use crate::{config, control, vc};
-use std::{collections, ops::Deref, ptr, slice, sync};
+use std::{collections, mem, ops::Deref, ptr, slice, sync};
 
 mod headers;
 
@@ -286,6 +286,23 @@ extern "C" fn VirtualChannelEntry(entry_points: headers::PCHANNEL_ENTRY_POINTS) 
         Ok(config) => {
             common::debug!("CALLED VirtualChannelEntry");
 
+            // Defensive hardening: refuse to run if the host passes an invalid pointer/structure.
+            // This prevents mstsc.exe from crashing if the ABI/structure layout doesn't match.
+            if entry_points.is_null() || (entry_points as usize) < 0x10000 {
+                common::error!(
+                    "VirtualChannelEntry: invalid entry_points pointer: {entry_points:p}"
+                );
+                return headers::FALSE;
+            }
+            let expected = mem::size_of::<headers::CHANNEL_ENTRY_POINTS>() as headers::DWORD;
+            let cb_size = unsafe { (*entry_points).cbSize };
+            if cb_size < expected {
+                common::error!(
+                    "VirtualChannelEntry: unexpected cbSize={cb_size} (expected >= {expected}); refusing to load"
+                );
+                return headers::FALSE;
+            }
+
             if generic_virtual_channel_entry(config, Svc::from(entry_points), ptr::null_mut())
                 .is_err()
             {
@@ -311,6 +328,24 @@ extern "C" fn VirtualChannelEntryEx(
         }
         Ok(config) => {
             common::debug!("CALLED VirtualChannelEntryEx (Windows)");
+
+            // Defensive hardening: refuse to run if the host passes an invalid pointer/structure.
+            // This prevents mstsc.exe from crashing if the ABI/structure layout doesn't match.
+            if entry_points.is_null() || (entry_points as usize) < 0x10000 {
+                common::error!(
+                    "VirtualChannelEntryEx: invalid entry_points pointer: {entry_points:p}"
+                );
+                return headers::FALSE;
+            }
+            let expected =
+                mem::size_of::<headers::CHANNEL_ENTRY_POINTS_EX_WINDOWS>() as headers::DWORD;
+            let cb_size = unsafe { (*entry_points).cbSize };
+            if cb_size < expected {
+                common::error!(
+                    "VirtualChannelEntryEx: unexpected cbSize={cb_size} (expected >= {expected}); refusing to load"
+                );
+                return headers::FALSE;
+            }
 
             if generic_virtual_channel_entry(config, Svc::from(entry_points), init_handle).is_err()
             {
@@ -358,8 +393,20 @@ pub(crate) struct Svc {
 impl From<headers::PCHANNEL_ENTRY_POINTS> for Svc {
     fn from(pep: headers::PCHANNEL_ENTRY_POINTS) -> Self {
         let ep = unsafe { *pep };
+        // service-input client detection is only implemented for FreeRDP/Citrix-style clients.
+        // When loaded inside Microsoft's mstsc.exe, attempting to interpret the RDP entrypoints
+        // as those client-specific structures can lead to invalid memory reads and crash mstsc.
         #[cfg(feature = "service-input")]
-        let client = client::Client::load_from_entrypoints(ep.cbSize, pep.cast());
+        let client = {
+            #[cfg(target_os = "windows")]
+            {
+                None
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                client::Client::load_from_entrypoints(ep.cbSize, pep.cast())
+            }
+        };
         let entrypoints = Entrypoints::Basic(ep);
         Self {
             entrypoints,
@@ -374,8 +421,9 @@ impl From<headers::PCHANNEL_ENTRY_POINTS> for Svc {
 impl From<headers::PCHANNEL_ENTRY_POINTS_EX_WINDOWS> for Svc {
     fn from(pep: headers::PCHANNEL_ENTRY_POINTS_EX_WINDOWS) -> Self {
         let ep = unsafe { *pep };
+        // See comment in the Basic entrypoints impl: mstsc's entrypoints are *not* FreeRDP/Citrix.
         #[cfg(feature = "service-input")]
-        let client = client::Client::load_from_entrypoints(ep.cbSize, pep.cast());
+        let client = None;
         let entrypoints = Entrypoints::Extended(ep);
         Self {
             entrypoints,

@@ -50,6 +50,23 @@ pub(crate) struct Client {
 
 impl Client {
     fn load(size: headers::DWORD, entrypoints: headers::LPVOID) -> Result<Self, Error> {
+        fn looks_like_fn_ptr(p: usize) -> bool {
+            // Cheap sanity check to avoid misclassifying unrelated entrypoint tables
+            // (e.g. mstsc's static virtual channel tables) as FreeRDP DVC entrypoints.
+            //
+            // The main goal is to avoid calling through a bogus function pointer and
+            // crashing the host process.
+            if p < 0x10000 {
+                return false;
+            }
+            if cfg!(target_pointer_width = "64") {
+                // Typical user-mode canonical range.
+                p < 0x0000_8000_0000_0000u64 as usize
+            } else {
+                p < 0x8000_0000
+            }
+        }
+
         let rdp_context = {
             if size as usize == mem::size_of::<headers::CHANNEL_ENTRY_POINTS_FREERDP>() {
                 let pep: headers::PCHANNEL_ENTRY_POINTS_FREERDP = entrypoints.cast();
@@ -67,6 +84,33 @@ impl Client {
                 let pep: *mut headers::IDRDYNVC_ENTRY_POINTS = entrypoints.cast();
 
                 let ep = unsafe { *pep };
+
+                // Defensive: IDRDYNVC_ENTRY_POINTS does not have a magic number. Validate that the
+                // first few function pointers look plausible before calling into them.
+                //
+                // Without this, other clients (notably mstsc.exe) can be misdetected when their
+                // entrypoint table size happens to match, leading to an access violation.
+                let ptrs: [Option<usize>; 5] = [
+                    ep.RegisterPlugin.map(|f| f as usize),
+                    ep.GetPlugin.map(|f| f as usize),
+                    ep.GetPluginData.map(|f| f as usize),
+                    ep.GetRdpSettings.map(|f| f as usize),
+                    ep.GetRdpContext.map(|f| f as usize),
+                ];
+                if ptrs.iter().any(|p| p.is_none()) {
+                    return Err(Error::NotFreerdp(
+                        "IDRDYNVC entrypoints missing required function pointers".into(),
+                    ));
+                }
+                if ptrs
+                    .iter()
+                    .flatten()
+                    .any(|p| !looks_like_fn_ptr(*p))
+                {
+                    return Err(Error::NotFreerdp(
+                        "IDRDYNVC entrypoints function pointers look invalid".into(),
+                    ));
+                }
 
                 let get_rdp_context = ep
                     .GetRdpContext
