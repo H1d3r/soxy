@@ -294,7 +294,9 @@ extern "C" fn VirtualChannelEntry(entry_points: headers::PCHANNEL_ENTRY_POINTS) 
                 );
                 return headers::FALSE;
             }
-            let expected = mem::size_of::<headers::CHANNEL_ENTRY_POINTS>() as headers::DWORD;
+            let expected =
+                headers::DWORD::try_from(mem::size_of::<headers::CHANNEL_ENTRY_POINTS>())
+                    .expect("size_of CHANNEL_ENTRY_POINTS to DWORD");
             let cb_size = unsafe { (*entry_points).cbSize };
             if cb_size < expected {
                 common::error!(
@@ -337,8 +339,10 @@ extern "C" fn VirtualChannelEntryEx(
                 );
                 return headers::FALSE;
             }
-            let expected =
-                mem::size_of::<headers::CHANNEL_ENTRY_POINTS_EX_WINDOWS>() as headers::DWORD;
+            let expected = headers::DWORD::try_from(mem::size_of::<
+                headers::CHANNEL_ENTRY_POINTS_EX_WINDOWS,
+            >())
+            .expect("size_of CHANNEL_ENTRY_POINTS_EX_WINDOWS to DWORD");
             let cb_size = unsafe { (*entry_points).cbSize };
             if cb_size < expected {
                 common::error!(
