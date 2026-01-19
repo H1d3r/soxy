@@ -19,7 +19,7 @@ enum-glob-use = "allow"
 missing-errors-doc = "allow"
 
 [profile.release]
-opt-level = 3
+opt-level = "s"
 debug = false
 strip = true
 lto = true

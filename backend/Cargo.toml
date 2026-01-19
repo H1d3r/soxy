@@ -41,7 +41,7 @@ crate-type = [ "cdylib", "rlib" ]
 name = "soxy"
 
 [profile.release]
-opt-level = "z"
+opt-level = "s"
 debug = false
 strip = true
 lto = true
