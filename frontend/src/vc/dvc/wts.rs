@@ -7,7 +7,7 @@ use windows::Win32::System::Com::*;
 use windows::Win32::System::RemoteDesktop::*;
 use windows::core::*;
 
-pub(crate) struct Dvc {
+pub struct Dvc {
     #[cfg(feature = "service-input")]
     client: Option<client::Client>,
 }
@@ -35,7 +35,7 @@ impl vc::VirtualChannel for Dvc {
     }
 }
 
-pub(crate) struct Handle {
+pub struct Handle {
     channel: IWTSVirtualChannel,
 }
 
@@ -160,7 +160,7 @@ impl IWTSPlugin_Impl for Plugin_Impl {
 
         common::info!("DVC(WTS) name is {:?}", config.channel);
 
-        let name = match common::virtual_channel_name(&config.channel) {
+        let mut name = match common::virtual_channel_name(&config.channel) {
             Err(e) => {
                 common::error!("{e}");
                 return Err(Error::new(E_INVALIDARG, &e));
@@ -180,7 +180,7 @@ impl IWTSPlugin_Impl for Plugin_Impl {
             Some(cm) => {
                 let _ = unsafe {
                     cm.CreateListener(
-                        PSTR(name.as_ptr() as *mut u8),
+                        PSTR(name.as_mut_ptr() as *mut u8),
                         flags,
                         self.as_interface_ref(),
                     )?
@@ -288,16 +288,13 @@ extern "system" fn DllGetClassObject(
 
     let factory = PluginFactory();
 
-    match unsafe { ppv.as_mut() } {
-        None => E_FAIL,
-        Some(ppv) => {
-            if unsafe { *rclsid } == GUID::from_u128(soxyreg::PLUGIN_GUID) {
-                *ppv = unsafe { mem::transmute::<IClassFactory, *mut ffi::c_void>(factory.into()) };
-                S_OK
-            } else {
-                *ppv = ptr::null_mut();
-                CLASS_E_CLASSNOTAVAILABLE
-            }
+    unsafe { ppv.as_mut() }.map_or(E_FAIL, |ppv| {
+        if unsafe { *rclsid } == GUID::from_u128(soxyreg::PLUGIN_GUID) {
+            *ppv = unsafe { mem::transmute::<IClassFactory, *mut ffi::c_void>(factory.into()) };
+            S_OK
+        } else {
+            *ppv = ptr::null_mut();
+            CLASS_E_CLASSNOTAVAILABLE
         }
-    }
+    })
 }

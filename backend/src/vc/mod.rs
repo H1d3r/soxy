@@ -48,7 +48,7 @@ type VirtualChannelWrite = unsafe extern "system" fn(
 type VirtualChannelClose =
     unsafe extern "system" fn(hchannelhandle: ws::Win32::Foundation::HANDLE) -> ws::core::BOOL;
 
-pub(crate) enum Error {
+pub enum Error {
     NoLibraryFound,
     LibraryLoading(libloading::Error),
     #[cfg(target_os = "windows")]
@@ -106,7 +106,7 @@ impl fmt::Display for Error {
     }
 }
 
-pub(crate) struct Libraries {
+pub struct Libraries {
     #[cfg(all(feature = "svc", target_os = "windows"))]
     vdp_rdpvcbridge: Option<libloading::Library>,
     #[cfg(feature = "svc")]
@@ -118,25 +118,25 @@ pub(crate) struct Libraries {
 
 impl Libraries {
     #[cfg(all(feature = "svc", target_os = "windows"))]
-    pub(crate) fn horizon(&self) -> Option<&libloading::Library> {
+    pub const fn horizon(&self) -> Option<&libloading::Library> {
         self.vdp_rdpvcbridge.as_ref()
     }
 
     #[cfg(feature = "svc")]
-    pub(crate) fn citrix(&self) -> Option<&libloading::Library> {
+    pub const fn citrix(&self) -> Option<&libloading::Library> {
         self.citrix.as_ref()
     }
 
     #[cfg(target_os = "windows")]
-    pub(crate) fn wts(&self) -> Option<&libloading::Library> {
+    pub const fn wts(&self) -> Option<&libloading::Library> {
         self.wtsapi32.as_ref()
     }
 
-    pub(crate) fn xrdp(&self) -> Option<&libloading::Library> {
+    pub const fn xrdp(&self) -> Option<&libloading::Library> {
         self.xrdpapi.as_ref()
     }
 
-    pub(crate) fn load() -> Self {
+    pub fn load() -> Self {
         unsafe {
             common::trace!("trying to load Citrix library");
             #[cfg(target_os = "windows")]
@@ -183,13 +183,13 @@ impl Libraries {
     }
 }
 
-pub(crate) trait VirtualChannel<'a>: Sized + Send + Sync {
+pub trait VirtualChannel<'a>: Sized + Send + Sync {
     type Handle: Handle;
     fn load(libs: &'a Libraries) -> Result<Self, Error>;
     fn open(&self, name: [ffi::c_char; 8]) -> Result<Self::Handle, Error>;
 }
 
-pub(crate) struct GenericChannel<'a> {
+pub struct GenericChannel<'a> {
     #[cfg(feature = "dvc")]
     dvc: Option<dvc::Dvc<'a>>,
     #[cfg(feature = "svc")]
@@ -257,14 +257,14 @@ impl<'a> VirtualChannel<'a> for GenericChannel<'a> {
     }
 }
 
-pub(crate) trait Handle: Send + Sync {
+pub trait Handle: Send + Sync {
     fn display_name(&self) -> &str;
     fn read(&self, data: &mut [u8]) -> Result<ops::Range<usize>, Error>;
     fn write(&self, data: &[u8]) -> Result<usize, Error>;
     fn close(self) -> Result<(), Error>;
 }
 
-pub(crate) enum GenericHandle<'a> {
+pub enum GenericHandle<'a> {
     #[cfg(feature = "dvc")]
     Dynamic(dvc::Handle<'a>),
     #[cfg(feature = "svc")]

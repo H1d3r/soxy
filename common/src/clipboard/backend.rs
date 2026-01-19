@@ -3,7 +3,7 @@ use crate::rdp;
 use copyrs::Clipboard;
 use std::{borrow, io};
 
-pub(crate) fn handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
+pub fn handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
     crate::debug!("starting");
 
     loop {

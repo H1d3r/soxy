@@ -114,7 +114,7 @@ fn command_bind(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
     }
 }
 
-pub(crate) fn handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
+pub fn handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
     crate::debug!("starting");
 
     let cmd = protocol::Command::receive(&mut stream)?;

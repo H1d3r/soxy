@@ -13,7 +13,7 @@ mod freerdp;
 #[allow(clippy::wildcard_imports)]
 mod wts;
 
-pub(crate) enum Dvc {
+pub enum Dvc {
     #[cfg(target_os = "windows")]
     Wts(wts::Dvc),
     Freerdp(freerdp::Dvc),
@@ -55,7 +55,7 @@ impl vc::VirtualChannel for Dvc {
     }
 }
 
-pub(crate) enum Handle {
+pub enum Handle {
     #[cfg(target_os = "windows")]
     Wts(wts::Handle),
     Freerdp(freerdp::Handle),

@@ -8,7 +8,7 @@ mod semaphore;
 
 const MAX_CHUNKS_IN_FLIGHT: usize = 64;
 
-pub(crate) enum Svc {
+pub enum Svc {
     Citrix(citrix::Svc),
     Rdp(rdp::Svc),
 }
@@ -45,7 +45,7 @@ impl vc::VirtualChannel for Svc {
     }
 }
 
-pub(crate) enum Handle {
+pub enum Handle {
     Citrix(citrix::Handle),
     Rdp(rdp::Handle),
 }

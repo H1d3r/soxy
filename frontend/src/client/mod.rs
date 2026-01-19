@@ -6,7 +6,7 @@ mod freerdp;
 mod headers;
 mod x11;
 
-pub(crate) enum Error {
+pub enum Error {
     Citrix(citrix::Error),
     Freerdp(freerdp::Error),
     X11(x11::Error),
@@ -46,7 +46,7 @@ impl From<x11::Error> for Error {
     }
 }
 
-pub(crate) enum Client {
+pub enum Client {
     Citrix(citrix::Client),
     Freerdp(freerdp::Client),
 }

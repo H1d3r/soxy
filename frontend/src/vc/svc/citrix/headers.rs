@@ -4,5 +4,6 @@
 #![allow(unused)]
 #![allow(clippy::upper_case_acronyms)]
 #![allow(clippy::identity_op)]
+#![allow(clippy::use_self)]
 
 include!(concat!(env!("OUT_DIR"), "/svc_citrix_headers.rs"));

@@ -1,7 +1,7 @@
 use crate::{api, channel, frontend, service};
 use std::{net, thread};
 
-pub(crate) fn tcp_frontend_handler(
+pub fn tcp_frontend_handler(
     _server: &frontend::FrontendTcpServer,
     _scope: &thread::Scope,
     client: net::TcpStream,

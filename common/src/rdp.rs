@@ -54,7 +54,7 @@ struct Handle<'a> {
 }
 
 impl<'a> Handle<'a> {
-    fn new(
+    const fn new(
         channel: &'a channel::Channel,
         service: &'a service::Service,
         client_id: api::ClientId,
@@ -238,7 +238,7 @@ pub struct RdpReader<'a> {
 }
 
 impl<'a> RdpReader<'a> {
-    fn new(handle: sync::Arc<Handle<'a>>) -> Self {
+    const fn new(handle: sync::Arc<Handle<'a>>) -> Self {
         Self {
             handle,
             read_pending: None,
@@ -352,14 +352,14 @@ impl io::Write for RdpWriter<'_> {
                 if chunk_len < self.write_pending.capacity() {
                     // last chunk
                     self.write_pending.extend_from_slice(chunk.payload());
-                    Ok(written + chunk_len)
                 } else {
                     // chunk is expected size
                     self.handle.send(chunk).map_err(|e| {
                         io::Error::new(io::ErrorKind::ConnectionAborted, e.to_string())
                     })?;
-                    Ok(written + chunk_len)
                 }
+
+                Ok(written + chunk_len)
             })
     }
 

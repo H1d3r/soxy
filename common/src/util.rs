@@ -5,13 +5,13 @@ use std::io;
 use std::net;
 
 #[cfg(feature = "backend")]
-pub(crate) struct BestAddress {
+pub struct BestAddress {
     pub cidr4: Option<(net::Ipv4Addr, u8)>,
     pub cidr6: Option<(net::Ipv6Addr, u8)>,
 }
 
 #[cfg(feature = "backend")]
-pub(crate) fn find_best_address() -> Result<BestAddress, network_interface::Error> {
+pub fn find_best_address() -> Result<BestAddress, network_interface::Error> {
     let interfaces = network_interface::NetworkInterface::show()?;
 
     let mut best_cidr4 = None;
@@ -85,7 +85,7 @@ pub(crate) fn find_best_address() -> Result<BestAddress, network_interface::Erro
 
 type StringLen = u64;
 
-pub(crate) fn serialize_string<W>(stream: &mut W, s: &str) -> Result<(), io::Error>
+pub fn serialize_string<W>(stream: &mut W, s: &str) -> Result<(), io::Error>
 where
     W: io::Write,
 {
@@ -97,7 +97,7 @@ where
     Ok(())
 }
 
-pub(crate) fn deserialize_string<R>(stream: &mut R) -> Result<String, io::Error>
+pub fn deserialize_string<R>(stream: &mut R) -> Result<String, io::Error>
 where
     R: io::Read,
 {

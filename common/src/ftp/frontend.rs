@@ -103,10 +103,10 @@ fn data_command(
     match res {
         Err(e) => {
             crate::warn!("data command {cmd:?} failed: {e}");
-            client.write_all("426 Connection closed; transfer aborted\r\n".as_bytes())?;
+            client.write_all(b"426 Connection closed; transfer aborted\r\n")?;
         }
         Ok(()) => {
-            client.write_all("226 Closing data connection\r\n".as_bytes())?;
+            client.write_all(b"226 Closing data connection\r\n")?;
         }
     }
 
@@ -115,7 +115,7 @@ fn data_command(
     Ok(())
 }
 
-pub(crate) fn tcp_handler<'a>(
+pub fn tcp_handler<'a>(
     server: &frontend::FrontendTcpServer,
     _scope: &'a thread::Scope<'a, '_>,
     mut client: net::TcpStream,
@@ -130,12 +130,12 @@ pub(crate) fn tcp_handler<'a>(
     let mut backend = channel.connect(&super::SERVICE)?;
     protocol::BackendMode::Control.send(&mut backend)?;
 
-    client.write_all("220 Welcome\r\n".as_bytes())?;
+    client.write_all(b"220 Welcome\r\n")?;
     client.flush()?;
 
     loop {
         match parse_command(&mut client_read)? {
-            None => client.write_all("502 Command not implemented\r\n".as_bytes())?,
+            None => client.write_all(b"502 Command not implemented\r\n")?,
             Some(command) => {
                 command.send(&mut backend)?;
                 let resp = protocol::ControlResponse::receive(&mut backend)?;
@@ -158,15 +158,15 @@ pub(crate) fn tcp_handler<'a>(
                         return Ok(());
                     }
                     protocol::ControlResponse::Feat => {
-                        client.write_all("211-Features:\r\n".as_bytes())?;
-                        client.write_all(" EPRT\r\n".as_bytes())?;
-                        client.write_all(" EPSV\r\n".as_bytes())?;
-                        client.write_all(" PASV\r\n".as_bytes())?;
-                        client.write_all(" REST STREAM\r\n".as_bytes())?;
-                        client.write_all(" SIZE\r\n".as_bytes())?;
-                        client.write_all(" TVFS\r\n".as_bytes())?;
-                        client.write_all(" UTF8\r\n".as_bytes())?;
-                        client.write_all("211 End\r\n".as_bytes())?;
+                        client.write_all(b"211-Features:\r\n")?;
+                        client.write_all(b" EPRT\r\n")?;
+                        client.write_all(b" EPSV\r\n")?;
+                        client.write_all(b" PASV\r\n")?;
+                        client.write_all(b" REST STREAM\r\n")?;
+                        client.write_all(b" SIZE\r\n")?;
+                        client.write_all(b" TVFS\r\n")?;
+                        client.write_all(b" UTF8\r\n")?;
+                        client.write_all(b"211 End\r\n")?;
                     }
                     protocol::ControlResponse::Pasv => match server.ip {
                         net::IpAddr::V4(ip) => {
@@ -181,7 +181,7 @@ pub(crate) fn tcp_handler<'a>(
                             )?;
                         }
                         net::IpAddr::V6(_) => {
-                            client.write_all("425 Can't open data connection\r\n".as_bytes())?;
+                            client.write_all(b"425 Can't open data connection\r\n")?;
                         }
                     },
                     protocol::ControlResponse::Epsv => {

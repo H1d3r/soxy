@@ -5,5 +5,6 @@
 #![allow(clippy::upper_case_acronyms)]
 #![allow(clippy::identity_op)]
 #![allow(clippy::unreadable_literal)]
+#![allow(clippy::use_self)]
 
 include!(concat!(env!("OUT_DIR"), "/client_freerdp_headers.rs"));

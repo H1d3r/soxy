@@ -22,7 +22,7 @@ Available commands:
 
 const PROMPT: &str = "stage0> ";
 
-pub(crate) fn tcp_handler(
+pub fn tcp_handler(
     _server: &frontend::FrontendTcpServer,
     _scope: &thread::Scope,
     stream: net::TcpStream,

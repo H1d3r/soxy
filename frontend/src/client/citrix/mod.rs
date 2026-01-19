@@ -4,7 +4,7 @@ use std::{ffi, fmt, mem, ptr, thread, time};
 
 mod headers;
 
-pub(crate) enum Error {
+pub enum Error {
     Loading(libloading::Error),
     MissingFunction(&'static str),
     X11(x11::Error),
@@ -34,7 +34,7 @@ impl From<x11::Error> for Error {
 
 const KEYBOARD_DELAY_DEFAULT_MS: u64 = 20;
 
-pub(crate) struct Client {
+pub struct Client {
     x11: x11::Client,
     window: *mut ffi::c_void,
     modifiers_state: x11::KeycodeAndModifier,
@@ -53,19 +53,15 @@ impl Client {
 
             let ncsx_key_down = unsafe {
                 lwfica
-                    .get::<headers::NCSXKeyDown>("NCSXKeyDown".as_bytes())?
+                    .get::<headers::NCSXKeyDown>(b"NCSXKeyDown")?
                     .into_raw()
             };
 
-            let ncsx_key_up = unsafe {
-                lwfica
-                    .get::<headers::NCSXKeyUp>("NCSXKeyUp".as_bytes())?
-                    .into_raw()
-            };
+            let ncsx_key_up = unsafe { lwfica.get::<headers::NCSXKeyUp>(b"NCSXKeyUp")?.into_raw() };
 
             let get_ica_window = unsafe {
                 lwfica
-                    .get::<headers::GetICADisplayWindow>("GetICADisplayWindow".as_bytes())?
+                    .get::<headers::GetICADisplayWindow>(b"GetICADisplayWindow")?
                     .into_raw()
             };
 
@@ -78,19 +74,16 @@ impl Client {
 
             let ncsx_key_down = unsafe {
                 lwfica
-                    .get::<headers::NCSXKeyDown>("NCSXKeyDown".as_bytes())?
+                    .get::<headers::NCSXKeyDown>(b"NCSXKeyDown")?
                     .as_raw_ptr()
             };
 
-            let ncsx_key_up = unsafe {
-                lwfica
-                    .get::<headers::NCSXKeyUp>("NCSXKeyUp".as_bytes())?
-                    .as_raw_ptr()
-            };
+            let ncsx_key_up =
+                unsafe { lwfica.get::<headers::NCSXKeyUp>(b"NCSXKeyUp")?.as_raw_ptr() };
 
             let get_ica_window = unsafe {
                 lwfica
-                    .get::<headers::GetICADisplayWindow>("GetICADisplayWindow".as_bytes())?
+                    .get::<headers::GetICADisplayWindow>(b"GetICADisplayWindow")?
                     .as_raw_ptr()
             };
 

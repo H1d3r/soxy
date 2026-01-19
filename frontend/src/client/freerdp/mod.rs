@@ -4,7 +4,7 @@ use std::{fmt, mem, thread, time};
 
 mod headers;
 
-pub(crate) enum Error {
+pub enum Error {
     NotFreerdp(String),
     Loading(libloading::Error),
     MissingFunction(&'static str),
@@ -36,7 +36,7 @@ impl From<x11::Error> for Error {
     }
 }
 
-fn looks_like_fn_ptr(p: usize) -> bool {
+const fn looks_like_fn_ptr(p: usize) -> bool {
     // Cheap sanity check to avoid misclassifying unrelated entrypoint tables
     // (e.g. mstsc's static virtual channel tables) as FreeRDP DVC entrypoints.
     //
@@ -55,7 +55,7 @@ fn looks_like_fn_ptr(p: usize) -> bool {
 
 const KEYBOARD_DELAY_DEFAULT_MS: u64 = 12;
 
-pub(crate) struct Client {
+pub struct Client {
     x11: x11::Client,
     rdp_input: headers::LPVOID,
     keyboard_init: headers::freerdp_keyboard_init,
@@ -133,7 +133,7 @@ impl Client {
 
         let keyboard_init = unsafe {
             lfreerdp
-                .get::<headers::freerdp_keyboard_init>("freerdp_keyboard_init".as_bytes())?
+                .get::<headers::freerdp_keyboard_init>(b"freerdp_keyboard_init")?
                 .into_raw()
                 .as_raw_ptr()
         };
@@ -144,7 +144,7 @@ impl Client {
         let keyboard_get_rdp_scancode_from_x11_keycode = unsafe {
             lfreerdp
                 .get::<headers::freerdp_keyboard_get_rdp_scancode_from_x11_keycode>(
-                    "freerdp_keyboard_get_rdp_scancode_from_x11_keycode".as_bytes(),
+                    b"freerdp_keyboard_get_rdp_scancode_from_x11_keycode",
                 )?
                 .into_raw()
                 .as_raw_ptr()
@@ -159,7 +159,7 @@ impl Client {
         let send_keyboard_event_ex = unsafe {
             lfreerdp
                 .get::<headers::freerdp_input_send_keyboard_event_ex>(
-                    "freerdp_input_send_keyboard_event_ex".as_bytes(),
+                    b"freerdp_input_send_keyboard_event_ex",
                 )?
                 .into_raw()
                 .as_raw_ptr()

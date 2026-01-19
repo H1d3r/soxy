@@ -4,14 +4,14 @@ use std::io;
 const ID_MODE_CONTROL: u8 = 0x00;
 const ID_MODE_DATA: u8 = 0x01;
 
-pub(crate) enum BackendMode {
+pub enum BackendMode {
     Control,
     Data,
 }
 
 impl BackendMode {
     #[cfg(feature = "frontend")]
-    pub(crate) fn send<W>(&self, stream: &mut W) -> Result<(), api::Error>
+    pub fn send<W>(&self, stream: &mut W) -> Result<(), api::Error>
     where
         W: io::Write,
     {
@@ -28,7 +28,7 @@ impl BackendMode {
     }
 
     #[cfg(feature = "backend")]
-    pub(crate) fn receive<R>(stream: &mut R) -> Result<Self, api::Error>
+    pub fn receive<R>(stream: &mut R) -> Result<Self, api::Error>
     where
         R: io::Read,
     {
@@ -63,7 +63,7 @@ const ID_CTRL_CMD_TYPE: u8 = 0x0f;
 const ID_CTRL_CMD_USER: u8 = 0x10;
 
 #[derive(Debug)]
-pub(crate) enum ControlCommand {
+pub enum ControlCommand {
     Cdup,
     Cwd(String),
     Dele(String),
@@ -85,7 +85,7 @@ pub(crate) enum ControlCommand {
 
 impl ControlCommand {
     #[cfg(feature = "frontend")]
-    pub(crate) fn send<W>(&self, stream: &mut W) -> Result<(), api::Error>
+    pub fn send<W>(&self, stream: &mut W) -> Result<(), api::Error>
     where
         W: io::Write,
     {
@@ -136,7 +136,7 @@ impl ControlCommand {
     }
 
     #[cfg(feature = "backend")]
-    pub(crate) fn receive<R>(stream: &mut R) -> Result<Self, api::Error>
+    pub fn receive<R>(stream: &mut R) -> Result<Self, api::Error>
     where
         R: io::Read,
     {
@@ -177,7 +177,7 @@ const ID_CTRL_RESP_PASV: u8 = 0x05;
 const ID_CTRL_RESP_EPSV: u8 = 0x06;
 
 #[derive(Debug)]
-pub(crate) enum ControlResponse {
+pub enum ControlResponse {
     Ok(u16, Option<String>),
     Error(u16),
     Data(DataCommand),
@@ -189,7 +189,7 @@ pub(crate) enum ControlResponse {
 
 impl ControlResponse {
     #[cfg(feature = "backend")]
-    pub(crate) fn send<W>(&self, stream: &mut W) -> Result<(), api::Error>
+    pub fn send<W>(&self, stream: &mut W) -> Result<(), api::Error>
     where
         W: io::Write,
     {
@@ -229,7 +229,7 @@ impl ControlResponse {
     }
 
     #[cfg(feature = "frontend")]
-    pub(crate) fn receive<R>(stream: &mut R) -> Result<Self, api::Error>
+    pub fn receive<R>(stream: &mut R) -> Result<Self, api::Error>
     where
         R: io::Read,
     {
@@ -274,7 +274,7 @@ const ID_DATA_CMD_RETR: u8 = 0x02;
 const ID_DATA_CMD_STOR: u8 = 0x03;
 
 #[derive(Debug)]
-pub(crate) enum DataCommand {
+pub enum DataCommand {
     List(String),
     Nlst(String),
     Retr(String),
@@ -282,7 +282,7 @@ pub(crate) enum DataCommand {
 }
 
 impl DataCommand {
-    pub(crate) fn send<W>(&self, stream: &mut W) -> Result<(), api::Error>
+    pub fn send<W>(&self, stream: &mut W) -> Result<(), api::Error>
     where
         W: io::Write,
     {
@@ -307,7 +307,7 @@ impl DataCommand {
         Ok(())
     }
 
-    pub(crate) fn receive<R>(stream: &mut R) -> Result<Self, api::Error>
+    pub fn receive<R>(stream: &mut R) -> Result<Self, api::Error>
     where
         R: io::Read,
     {

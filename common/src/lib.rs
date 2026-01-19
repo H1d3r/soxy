@@ -74,12 +74,12 @@ pub const fn init_logs(_level: Level, _file: Option<&String>) {}
 impl From<Level> for simplelog::LevelFilter {
     fn from(level: Level) -> Self {
         match level {
-            Level::Off => simplelog::LevelFilter::Off,
-            Level::Error => simplelog::LevelFilter::Error,
-            Level::Warn => simplelog::LevelFilter::Warn,
-            Level::Info => simplelog::LevelFilter::Info,
-            Level::Debug => simplelog::LevelFilter::Debug,
-            Level::Trace => simplelog::LevelFilter::Trace,
+            Level::Off => Self::Off,
+            Level::Error => Self::Error,
+            Level::Warn => Self::Warn,
+            Level::Info => Self::Info,
+            Level::Debug => Self::Debug,
+            Level::Trace => Self::Trace,
         }
     }
 }

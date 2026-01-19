@@ -4,7 +4,7 @@ use std::{io, net};
 
 const SERVICE_KIND: service::Kind = service::Kind::Backend;
 
-pub(crate) fn handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
+pub fn handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
     crate::debug!("starting");
 
     let command = protocol::Command::receive(&mut stream)?;

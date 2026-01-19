@@ -120,7 +120,7 @@ fn command_bind(
     service::double_stream_copy(SERVICE_KIND, &super::SERVICE, client_rdp, stream, true)
 }
 
-pub(crate) fn tcp_handler(
+pub fn tcp_handler(
     _server: &frontend::FrontendTcpServer,
     _scope: &thread::Scope,
     mut stream: net::TcpStream,

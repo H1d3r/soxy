@@ -23,7 +23,7 @@ Available commands:
 
 const PROMPT: &str = "clipboard> ";
 
-pub(crate) fn tcp_handler<'a>(
+pub fn tcp_handler<'a>(
     _server: &frontend::FrontendTcpServer,
     _scope: &'a thread::Scope<'a, '_>,
     stream: net::TcpStream,

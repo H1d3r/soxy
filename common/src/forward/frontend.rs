@@ -4,7 +4,7 @@ use std::{io, net, thread};
 
 const SERVICE_KIND: service::Kind = service::Kind::Frontend;
 
-pub(crate) fn tcp_handler<'a>(
+pub fn tcp_handler<'a>(
     server: &frontend::FrontendTcpServer,
     _scope: &'a thread::Scope<'a, '_>,
     stream: net::TcpStream,

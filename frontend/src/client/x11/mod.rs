@@ -5,9 +5,9 @@ use std::{
     ptr, slice, sync,
 };
 
-pub(crate) mod headers;
+pub mod headers;
 
-pub(crate) enum Error {
+pub enum Error {
     Loading(libloading::Error),
     MissingFunction(&'static str),
     OpenDisplayFailed,
@@ -46,57 +46,57 @@ impl From<libloading::Error> for Error {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-pub(crate) struct KeycodeAndModifier {
+pub struct KeycodeAndModifier {
     pub keycode: u8,
     pub modifiers: u8,
 }
 
 impl KeycodeAndModifier {
-    pub(crate) fn contains_shift(self) -> bool {
+    pub fn contains_shift(self) -> bool {
         self.modifiers.bitand(headers::ShiftMask) != 0
     }
 
-    pub(crate) fn contains_control(self) -> bool {
+    pub fn contains_control(self) -> bool {
         self.modifiers.bitand(headers::ControlMask) != 0
     }
 
-    pub(crate) fn contains_mod1(self) -> bool {
+    pub fn contains_mod1(self) -> bool {
         self.modifiers.bitand(headers::Mod1Mask) != 0
     }
 
-    pub(crate) fn contains_mod2(self) -> bool {
+    pub fn contains_mod2(self) -> bool {
         self.modifiers.bitand(headers::Mod2Mask) != 0
     }
 
-    pub(crate) fn contains_mod3(self) -> bool {
+    pub fn contains_mod3(self) -> bool {
         self.modifiers.bitand(headers::Mod3Mask) != 0
     }
 
-    pub(crate) fn contains_mod4(self) -> bool {
+    pub fn contains_mod4(self) -> bool {
         self.modifiers.bitand(headers::Mod4Mask) != 0
     }
 
-    pub(crate) fn contains_mod5(self) -> bool {
+    pub fn contains_mod5(self) -> bool {
         self.modifiers.bitand(headers::Mod5Mask) != 0
     }
 
-    pub(crate) fn set_modifiers(&mut self, other: Self) {
+    pub fn set_modifiers(&mut self, other: Self) {
         self.modifiers.bitor_assign(other.modifiers);
     }
 }
 
-pub(crate) struct Client {
+pub struct Client {
     display: *mut ffi::c_void,
     xkb_get_map: headers::XkbGetMap,
     mapping_cache: sync::RwLock<collections::HashMap<input::Key, KeycodeAndModifier>>,
 }
 
 impl Client {
-    pub(crate) fn load() -> Result<Self, Error> {
+    pub fn load() -> Result<Self, Error> {
         let lx11 = unsafe { libloading::Library::new("libX11.so.6")? };
 
         let x_open_display = unsafe {
-            lx11.get::<headers::XOpenDisplay>("XOpenDisplay".as_bytes())?
+            lx11.get::<headers::XOpenDisplay>(b"XOpenDisplay")?
                 .into_raw()
                 .as_raw_ptr()
         };
@@ -114,7 +114,7 @@ impl Client {
         }
 
         let xkb_get_map = unsafe {
-            lx11.get::<headers::XkbGetMap>("XkbGetMap".as_bytes())?
+            lx11.get::<headers::XkbGetMap>(b"XkbGetMap")?
                 .into_raw()
                 .as_raw_ptr()
         };
@@ -128,11 +128,11 @@ impl Client {
         })
     }
 
-    pub(crate) fn reset(&mut self) {
+    pub fn reset(&self) {
         self.mapping_cache.write().unwrap().clear();
     }
 
-    pub(crate) fn lookup_keycode_and_modifiers(
+    pub fn lookup_keycode_and_modifiers(
         &self,
         key: input::Key,
     ) -> Result<KeycodeAndModifier, Error> {
@@ -171,7 +171,7 @@ impl Client {
         }
     }
 
-    pub(crate) fn key_press_event(
+    pub fn key_press_event(
         &self,
         window: *mut ffi::c_void,
         keycode_modifier: KeycodeAndModifier,
@@ -189,7 +189,7 @@ impl Client {
         }
     }
 
-    pub(crate) fn key_release_event(
+    pub fn key_release_event(
         &self,
         window: *mut ffi::c_void,
         keycode_modifier: KeycodeAndModifier,

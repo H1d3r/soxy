@@ -7,7 +7,7 @@ mod backend;
 #[cfg(feature = "frontend")]
 mod frontend;
 
-pub(crate) static SERVICE: service::Service = service::Service {
+pub static SERVICE: service::Service = service::Service {
     internal: false,
     name: "command",
     #[cfg(feature = "frontend")]

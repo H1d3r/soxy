@@ -94,12 +94,11 @@ fn control_handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
                 } else {
                     cwd.join(path)
                 };
-                if let Ok(metadata) = path.metadata() {
-                    let size = metadata.len();
-                    protocol::ControlResponse::Ok(213, Some(format!("{size}")))
-                } else {
-                    protocol::ControlResponse::Error(540)
-                }
+                path.metadata()
+                    .map_or(protocol::ControlResponse::Error(540), |metadata| {
+                        let size = metadata.len();
+                        protocol::ControlResponse::Ok(213, Some(format!("{size}")))
+                    })
             }
             protocol::ControlCommand::Stor(path) => {
                 let path = if path.starts_with('/') {
@@ -214,7 +213,7 @@ fn data_handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
     Ok(())
 }
 
-pub(crate) fn handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
+pub fn handler(mut stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
     let mode = protocol::BackendMode::receive(&mut stream)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
 

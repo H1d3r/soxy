@@ -5,7 +5,7 @@ use crate::service;
 #[cfg(feature = "frontend")]
 mod frontend;
 
-pub(crate) static SERVICE: service::Service = service::Service {
+pub static SERVICE: service::Service = service::Service {
     internal: false,
     name: "stage0",
     #[cfg(feature = "frontend")]

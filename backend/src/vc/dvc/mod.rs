@@ -5,7 +5,7 @@ use std::{ffi, ops};
 mod wts;
 mod xrdp;
 
-pub(crate) enum Dvc<'a> {
+pub enum Dvc<'a> {
     Xrdp(xrdp::Dvc<'a>),
     #[cfg(target_os = "windows")]
     Wts(wts::Dvc<'a>),
@@ -30,7 +30,7 @@ impl<'a> vc::VirtualChannel<'a> for Dvc<'a> {
     }
 }
 
-pub(crate) enum Handle<'a> {
+pub enum Handle<'a> {
     Xrdp(xrdp::Handle<'a>),
     #[cfg(target_os = "windows")]
     Wts(wts::Handle<'a>),

@@ -78,7 +78,7 @@ fn key_lookup(s: &str) -> Option<input::Key> {
 }
 
 #[allow(clippy::too_many_lines)]
-pub(crate) fn tcp_handler(
+pub fn tcp_handler(
     _server: &frontend::FrontendTcpServer,
     _scope: &thread::Scope,
     stream: net::TcpStream,

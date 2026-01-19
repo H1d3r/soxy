@@ -264,7 +264,7 @@ fn DriverQueryInformation(
 }
 
 #[allow(clippy::unnecessary_wraps)]
-fn DriverSetInformation(
+const fn DriverSetInformation(
     _vd: &mut headers::VD,
     _vd_set_info: &mut headers::VDSETINFORMATION,
 ) -> Result<(), ffi::c_int> {
@@ -304,7 +304,7 @@ extern "C" fn ICADataArrival(
     headers::CLIENT_STATUS_SUCCESS
 }
 
-pub(crate) struct Svc {
+pub struct Svc {
     #[cfg(feature = "service-input")]
     client: Option<client::Client>,
 }
@@ -314,7 +314,7 @@ unsafe impl Send for Svc {}
 
 impl Svc {
     #[cfg(feature = "service-input")]
-    fn new(client: Option<client::Client>) -> Self {
+    const fn new(client: Option<client::Client>) -> Self {
         Self { client }
     }
 }
@@ -339,7 +339,7 @@ impl vc::VirtualChannel for Svc {
     }
 }
 
-pub(crate) struct Handle {
+pub struct Handle {
     write_queue_send: crossbeam_channel::Sender<Vec<u8>>,
 }
 

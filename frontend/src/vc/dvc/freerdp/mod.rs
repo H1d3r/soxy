@@ -5,7 +5,7 @@ use std::{ffi, mem, ops::Deref, ptr, slice, sync};
 
 mod headers;
 
-pub(crate) struct Dvc {
+pub struct Dvc {
     #[cfg(feature = "service-input")]
     client: Option<client::Client>,
 }
@@ -33,7 +33,7 @@ impl vc::VirtualChannel for Dvc {
     }
 }
 
-pub(crate) struct Handle {
+pub struct Handle {
     channel: *mut headers::IWTSVirtualChannel,
     write: unsafe extern "C" fn(
         channel: *mut headers::IWTSVirtualChannel,

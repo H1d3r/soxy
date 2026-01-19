@@ -1,7 +1,7 @@
 use crate::{rdp, service};
 use std::{io, process, thread};
 
-pub(crate) fn backend_handler(rdp_stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
+pub fn backend_handler(rdp_stream: rdp::RdpStream<'_>) -> Result<(), io::Error> {
     let client_id = rdp_stream.client_id();
 
     #[cfg(target_os = "windows")]

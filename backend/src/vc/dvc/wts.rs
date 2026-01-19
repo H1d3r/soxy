@@ -2,7 +2,7 @@ use crate::vc;
 use std::{cell, ffi, io, ops, os, ptr};
 use windows_sys as ws;
 
-pub(crate) struct Dvc<'a> {
+pub struct Dvc<'a> {
     open_ex: libloading::Symbol<'a, vc::VirtualChannelOpenEx>,
     query: libloading::Symbol<'a, vc::VirtualChannelQuery>,
     close: libloading::Symbol<'a, vc::VirtualChannelClose>,
@@ -16,9 +16,9 @@ impl<'a> vc::VirtualChannel<'a> for Dvc<'a> {
             .ok_or(vc::Error::NoLibraryFound)
             .and_then(|lib| unsafe {
                 Ok(Self {
-                    open_ex: lib.get("WTSVirtualChannelOpenEx".as_bytes())?,
-                    query: lib.get("WTSVirtualChannelQuery".as_bytes())?,
-                    close: lib.get("WTSVirtualChannelClose".as_bytes())?,
+                    open_ex: lib.get(b"WTSVirtualChannelOpenEx")?,
+                    query: lib.get(b"WTSVirtualChannelQuery")?,
+                    close: lib.get(b"WTSVirtualChannelClose")?,
                 })
             })
     }
@@ -131,7 +131,7 @@ fn create_io_overlapped() -> Result<ws::Win32::System::IO::OVERLAPPED, vc::Error
     })
 }
 
-pub(crate) struct Handle<'a> {
+pub struct Handle<'a> {
     name: String,
     channelhandle: ws::Win32::Foundation::HANDLE,
     close: libloading::Symbol<'a, vc::VirtualChannelClose>,

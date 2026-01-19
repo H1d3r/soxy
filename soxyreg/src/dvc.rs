@@ -96,7 +96,7 @@ fn wts_unregister() -> Result<(), String> {
     res
 }
 
-pub(crate) fn register(dll_path: &str) {
+pub fn register(dll_path: &str) {
     if let Err(e) = wts_register(dll_path) {
         eprintln!("WTS register error: {e}");
     } else {
@@ -104,7 +104,7 @@ pub(crate) fn register(dll_path: &str) {
     }
 }
 
-pub(crate) fn unregister() {
+pub fn unregister() {
     if let Err(e) = wts_unregister() {
         eprintln!("WTS unregister error: {e}");
     } else {

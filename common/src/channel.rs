@@ -204,7 +204,8 @@ impl Channel {
                                 api::ChunkType::End => {
                                     crate::debug!("CHANNEL received {chunk}");
 
-                                    match self.clients.write().unwrap().remove(&client_id) {
+                                    let value = self.clients.write().unwrap().remove(&client_id);
+                                    match value {
                                         None => {
                                             crate::warn!(
                                                 "received End for unknown client {client_id:x}"

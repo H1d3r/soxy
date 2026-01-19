@@ -127,7 +127,7 @@ fn LfSessionEventDestroy(
     convert_status(unsafe { (ws_close_connection)(handle) })
 }
 
-pub(crate) enum Svc<'a> {
+pub enum Svc<'a> {
     Citrix {
         open_ex: libloading::Symbol<'a, WsVirtualOpenEx>,
         read: libloading::Symbol<'a, WsVirtualRead>,
@@ -152,12 +152,12 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
         if let Some(citrix) = libs.citrix() {
             unsafe {
                 Ok(Self::Citrix {
-                    open_ex: citrix.get("WsVirtualOpenEx".as_bytes())?,
-                    read: citrix.get("WsVirtualRead".as_bytes())?,
-                    write: citrix.get("WsVirtualWrite".as_bytes())?,
-                    close: citrix.get("WsVirtualClose".as_bytes())?,
-                    event_open_connection: citrix.get("WsOpenConnection".as_bytes())?,
-                    event_close_connection: citrix.get("WsCloseConnection".as_bytes())?,
+                    open_ex: citrix.get(b"WsVirtualOpenEx")?,
+                    read: citrix.get(b"WsVirtualRead")?,
+                    write: citrix.get(b"WsVirtualWrite")?,
+                    close: citrix.get(b"WsVirtualClose")?,
+                    event_open_connection: citrix.get(b"WsOpenConnection")?,
+                    event_close_connection: citrix.get(b"WsCloseConnection")?,
                 })
             }
         } else if let Some(xrdp) = libs.xrdp() {
@@ -167,12 +167,11 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
 
                 let log_init = unsafe {
                     xrdp.get::<fn(os::raw::c_int, *mut os::raw::c_void) -> *mut os::raw::c_void>(
-                        "log_config_init_for_console".as_bytes(),
+                        b"log_config_init_for_console",
                     )?
                 };
-                let log_start = unsafe {
-                    xrdp.get::<fn(*mut os::raw::c_void)>("log_start_from_param".as_bytes())?
-                };
+                let log_start =
+                    unsafe { xrdp.get::<fn(*mut os::raw::c_void)>(b"log_start_from_param")? };
 
                 let lc = log_init(4, ptr::null_mut());
 
@@ -183,11 +182,11 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
 
             unsafe {
                 Ok(Self::Standard {
-                    open: xrdp.get("WTSVirtualChannelOpen".as_bytes())?,
-                    query: xrdp.get("WTSVirtualChannelQuery".as_bytes())?,
-                    read: xrdp.get("WTSVirtualChannelRead".as_bytes())?,
-                    write: xrdp.get("WTSVirtualChannelWrite".as_bytes())?,
-                    close: xrdp.get("WTSVirtualChannelClose".as_bytes())?,
+                    open: xrdp.get(b"WTSVirtualChannelOpen")?,
+                    query: xrdp.get(b"WTSVirtualChannelQuery")?,
+                    read: xrdp.get(b"WTSVirtualChannelRead")?,
+                    write: xrdp.get(b"WTSVirtualChannelWrite")?,
+                    close: xrdp.get(b"WTSVirtualChannelClose")?,
                 })
             }
         } else {
@@ -300,7 +299,7 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
     }
 }
 
-pub(crate) enum Handle<'a> {
+pub enum Handle<'a> {
     Citrix {
         name: String,
         handle: VcHandle,

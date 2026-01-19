@@ -133,7 +133,7 @@ fn rdp_unregister() -> Result<(), String> {
     res
 }
 
-pub(crate) fn register(dll_path: &str, dll_file_name: &str) {
+pub fn register(dll_path: &str, dll_file_name: &str) {
     if let Err(e) = rdp_register(dll_path) {
         eprintln!("RDP register error: {e}");
     } else {
@@ -150,7 +150,7 @@ pub(crate) fn register(dll_path: &str, dll_file_name: &str) {
     }
 }
 
-pub(crate) fn unregister() {
+pub fn unregister() {
     if let Err(e) = rdp_unregister() {
         eprintln!("RDP unregister error: {e}");
     } else {

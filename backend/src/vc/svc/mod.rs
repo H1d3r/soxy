@@ -13,7 +13,7 @@ use high_linux as high;
 #[cfg(target_os = "windows")]
 use high_windows as high;
 
-pub(crate) enum Svc<'a> {
+pub enum Svc<'a> {
     High(high::Svc<'a>),
     #[cfg(target_os = "windows")]
     Low(low::Svc<'a>),
@@ -38,7 +38,7 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
     }
 }
 
-pub(crate) enum Handle<'a> {
+pub enum Handle<'a> {
     High(high::Handle<'a>),
     #[cfg(target_os = "windows")]
     Low(low::Handle<'a>),

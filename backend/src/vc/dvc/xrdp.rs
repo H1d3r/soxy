@@ -2,7 +2,7 @@ use crate::vc;
 use std::{ffi, io, ops, os, ptr, thread};
 use windows_sys as ws;
 
-pub(crate) struct Dvc<'a> {
+pub struct Dvc<'a> {
     open_ex: libloading::Symbol<'a, vc::VirtualChannelOpenEx>,
     query: libloading::Symbol<'a, vc::VirtualChannelQuery>,
     read: libloading::Symbol<'a, vc::VirtualChannelRead>,
@@ -18,11 +18,11 @@ impl<'a> vc::VirtualChannel<'a> for Dvc<'a> {
             .ok_or(vc::Error::NoLibraryFound)
             .and_then(|lib| unsafe {
                 Ok(Self {
-                    open_ex: lib.get("WTSVirtualChannelOpenEx".as_bytes())?,
-                    query: lib.get("WTSVirtualChannelQuery".as_bytes())?,
-                    read: lib.get("WTSVirtualChannelRead".as_bytes())?,
-                    write: lib.get("WTSVirtualChannelWrite".as_bytes())?,
-                    close: lib.get("WTSVirtualChannelClose".as_bytes())?,
+                    open_ex: lib.get(b"WTSVirtualChannelOpenEx")?,
+                    query: lib.get(b"WTSVirtualChannelQuery")?,
+                    read: lib.get(b"WTSVirtualChannelRead")?,
+                    write: lib.get(b"WTSVirtualChannelWrite")?,
+                    close: lib.get(b"WTSVirtualChannelClose")?,
                 })
             })
     }
@@ -76,7 +76,7 @@ impl<'a> vc::VirtualChannel<'a> for Dvc<'a> {
     }
 }
 
-pub(crate) struct Handle<'a> {
+pub struct Handle<'a> {
     name: String,
     wtshandle: ws::Win32::Foundation::HANDLE,
     read: libloading::Symbol<'a, vc::VirtualChannelRead>,

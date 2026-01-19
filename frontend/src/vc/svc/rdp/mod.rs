@@ -42,7 +42,8 @@ fn generic_channel_init_event(
                 counter: sync::atomic::AtomicU32::new(0),
             });
 
-            if let Some(mut svc) = TMP_RDP_SVC.write().unwrap().take() {
+            let value = TMP_RDP_SVC.write().unwrap().take();
+            if let Some(mut svc) = value {
                 svc.init_handle = init_handle;
                 let svc = super::Svc::Rdp(svc);
                 let vc = vc::GenericChannel::Static(svc);
@@ -387,7 +388,7 @@ extern "C" fn VirtualChannelEntryEx(
     }
 }
 
-pub(crate) struct Svc {
+pub struct Svc {
     entrypoints: Entrypoints,
     init_handle: headers::LPVOID,
     #[cfg(feature = "service-input")]
@@ -543,7 +544,7 @@ impl vc::VirtualChannel for Svc {
 unsafe impl Sync for Svc {}
 unsafe impl Send for Svc {}
 
-pub(crate) struct Handle {
+pub struct Handle {
     entrypoints: Entrypoints,
     init: headers::LPVOID,
     open: u32,

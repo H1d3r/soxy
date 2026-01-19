@@ -23,10 +23,9 @@ impl FrontendTcpServer {
         tcp: net::SocketAddr,
         custom_data: Option<String>,
     ) -> Result<Self, io::Error> {
-        let data = match custom_data.as_ref() {
-            Some(data) => format!(" ({data})"),
-            None => String::new(),
-        };
+        let data = custom_data
+            .as_ref()
+            .map_or_else(String::new, |data| format!(" ({data})"));
 
         crate::info!("binding {service}{} clients on {tcp}", data);
 
@@ -42,28 +41,31 @@ impl FrontendTcpServer {
     }
 
     pub fn start<'a>(&'a self, channel: &'a channel::Channel) -> Result<(), io::Error> {
-        match self.service.frontend().and_then(Frontend::tcp) {
-            None => Ok(()),
-            Some(frontend_tcp) => thread::scope(|scope| {
-                loop {
-                    let (client, client_addr) = self.server.accept()?;
+        self.service
+            .frontend()
+            .and_then(Frontend::tcp)
+            .map_or(Ok(()), |frontend_tcp| {
+                thread::scope(|scope| {
+                    loop {
+                        let (client, client_addr) = self.server.accept()?;
 
-                    crate::debug!("new client {client_addr}");
+                        crate::debug!("new client {client_addr}");
 
-                    thread::Builder::new()
-                        .name(format!(
-                            "{} {} {client_addr}",
-                            service::Kind::Frontend,
-                            self.service
-                        ))
-                        .spawn_scoped(scope, move || {
-                            if let Err(e) = (frontend_tcp.handler)(self, scope, client, channel) {
-                                crate::debug!("error: {e}");
-                            }
-                        })?;
-                }
-            }),
-        }
+                        thread::Builder::new()
+                            .name(format!(
+                                "{} {} {client_addr}",
+                                service::Kind::Frontend,
+                                self.service
+                            ))
+                            .spawn_scoped(scope, move || {
+                                if let Err(e) = (frontend_tcp.handler)(self, scope, client, channel)
+                                {
+                                    crate::debug!("error: {e}");
+                                }
+                            })?;
+                    }
+                })
+            })
     }
 }
 

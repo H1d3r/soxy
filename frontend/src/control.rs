@@ -6,7 +6,7 @@ const FRONTEND_TO_VC_CHANNEL_SIZE: usize = 1;
 const FRONTEND_OUTPUT_CHANNEL_SIZE: usize = 64;
 
 #[derive(Debug)]
-pub(crate) enum Error {
+pub enum Error {
     Api(api::Error),
     Crossbeam(String),
 }
@@ -38,7 +38,7 @@ impl<T> From<crossbeam_channel::SendError<T>> for Error {
     }
 }
 
-pub(crate) enum FromVc {
+pub enum FromVc {
     Loaded(vc::GenericChannel),
     Opened(vc::GenericHandle),
     Data(Vec<u8>),
@@ -58,9 +58,9 @@ enum State {
 impl State {
     fn update<F>(&mut self, f: F)
     where
-        F: FnOnce(State) -> State,
+        F: FnOnce(Self) -> Self,
     {
-        let old = mem::replace(self, State::Invalid);
+        let old = mem::replace(self, Self::Invalid);
         *self = f(old);
     }
 }
@@ -340,22 +340,22 @@ impl ChannelControl {
     }
 }
 
-pub(crate) struct FrontendConnector {
-    pub(crate) send: crossbeam_channel::Sender<api::Message>,
-    pub(crate) recv: crossbeam_channel::Receiver<api::Message>,
+pub struct FrontendConnector {
+    pub send: crossbeam_channel::Sender<api::Message>,
+    pub recv: crossbeam_channel::Receiver<api::Message>,
 }
 
-pub(crate) struct ChannelConnector {
+pub struct ChannelConnector {
     send: crossbeam_channel::Sender<FromVc>,
 }
 
 impl ChannelConnector {
-    pub(crate) fn send(&self, msg: FromVc) -> Result<(), Error> {
+    pub fn send(&self, msg: FromVc) -> Result<(), Error> {
         Ok(self.send.send(msg)?)
     }
 }
 
-pub(crate) struct Control {
+pub struct Control {
     state: sync::RwLock<State>,
     frontend: FrontendControl,
     channel: ChannelControl,
@@ -364,7 +364,7 @@ pub(crate) struct Control {
 }
 
 impl Control {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         let (frontend_in_send, frontend_in_recv) =
             crossbeam_channel::bounded(FRONTEND_TO_VC_CHANNEL_SIZE);
         let (frontend_out_send, frontend_out_recv) =
@@ -400,20 +400,20 @@ impl Control {
     }
 
     #[cfg(feature = "dvc")]
-    pub(crate) fn is_opened(&self) -> bool {
+    pub fn is_opened(&self) -> bool {
         let state = self.state.read().unwrap();
         matches!(&*state, &State::Opened(_, _))
     }
 
-    pub(crate) const fn channel_connector(&self) -> &ChannelConnector {
+    pub const fn channel_connector(&self) -> &ChannelConnector {
         &self.channel_connector
     }
 
-    pub(crate) fn take_frontend_connector(&self) -> Option<FrontendConnector> {
+    pub fn take_frontend_connector(&self) -> Option<FrontendConnector> {
         self.frontend_connector.write().unwrap().take()
     }
 
-    pub(crate) fn start<'a>(&'a self, scope: &'a thread::Scope<'a, '_>) {
+    pub fn start<'a>(&'a self, scope: &'a thread::Scope<'a, '_>) {
         thread::Builder::new()
             .name("control frontend".into())
             .spawn_scoped(scope, || {

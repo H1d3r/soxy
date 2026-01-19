@@ -65,7 +65,7 @@ const fn default_true() -> bool {
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
-pub(crate) struct Log {
+pub struct Log {
     #[serde(default = "default_log_level")]
     level: String,
     #[serde(default = "default_log_file")]
@@ -82,7 +82,7 @@ impl Default for Log {
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
-pub(crate) struct Service {
+pub struct Service {
     pub name: String,
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -93,7 +93,7 @@ pub(crate) struct Service {
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
-pub(crate) struct Forward {
+pub struct Forward {
     #[serde(default = "default_true")]
     pub enabled: bool,
     #[serde(default)]
@@ -118,7 +118,7 @@ fn default_services() -> Vec<Service> {
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
-pub(crate) struct Config {
+pub struct Config {
     #[serde(default = "default_channel")]
     pub channel: String,
     pub ip: String,
@@ -162,7 +162,7 @@ impl Config {
         let mut data = String::new();
         file.read_to_string(&mut data)?;
 
-        Ok(Some(Config::parse(&data)?))
+        Ok(Some(Self::parse(&data)?))
     }
 
     pub fn save(&self) -> Result<(), Error> {
@@ -187,7 +187,7 @@ impl Config {
         common::Level::try_from(self.log.level.as_str()).unwrap_or(common::Level::Info)
     }
 
-    pub fn log_file(&self) -> Option<&String> {
+    pub const fn log_file(&self) -> Option<&String> {
         self.log.file.as_ref()
     }
 

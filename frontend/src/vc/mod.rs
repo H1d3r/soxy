@@ -7,7 +7,7 @@ mod dvc;
 #[cfg(feature = "svc")]
 mod svc;
 
-pub(crate) enum Error {
+pub enum Error {
     NotReady,
     InvalidChannelName(String),
     VirtualChannel(u32),
@@ -63,7 +63,7 @@ impl<T> From<crossbeam_channel::SendError<T>> for Error {
     }
 }
 
-pub(crate) trait VirtualChannel {
+pub trait VirtualChannel {
     fn open(&mut self) -> Result<(), Error>;
     #[cfg(feature = "service-input")]
     fn client(&self) -> Option<&client::Client>;
@@ -79,7 +79,7 @@ pub(crate) trait VirtualChannel {
     }
 }
 
-pub(crate) enum GenericChannel {
+pub enum GenericChannel {
     #[cfg(feature = "dvc")]
     Dynamic(dvc::Dvc),
     #[cfg(feature = "svc")]
@@ -126,12 +126,12 @@ impl VirtualChannel for GenericChannel {
     }
 }
 
-pub(crate) trait Handle {
+pub trait Handle {
     fn write(&self, data: Vec<u8>) -> Result<(), Error>;
     fn close(&mut self) -> Result<(), Error>;
 }
 
-pub(crate) enum GenericHandle {
+pub enum GenericHandle {
     #[cfg(feature = "dvc")]
     Dynamic(dvc::Handle),
     #[cfg(feature = "svc")]

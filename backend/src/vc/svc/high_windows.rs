@@ -2,7 +2,7 @@ use crate::vc;
 use std::{ffi, io, ops, os, ptr, thread};
 use windows_sys as ws;
 
-pub(crate) struct Svc<'a> {
+pub struct Svc<'a> {
     open: libloading::Symbol<'a, vc::VirtualChannelOpen>,
     query: libloading::Symbol<'a, vc::VirtualChannelQuery>,
     read: libloading::Symbol<'a, vc::VirtualChannelRead>,
@@ -17,21 +17,21 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
         if let Some(citrix) = libs.citrix() {
             unsafe {
                 Ok(Self {
-                    open: citrix.get("WFVirtualChannelOpen".as_bytes())?,
-                    query: citrix.get("WFVirtualChannelQuery".as_bytes())?,
-                    read: citrix.get("WFVirtualChannelRead".as_bytes())?,
-                    write: citrix.get("WFVirtualChannelWrite".as_bytes())?,
-                    close: citrix.get("WFVirtualChannelClose".as_bytes())?,
+                    open: citrix.get(b"WFVirtualChannelOpen")?,
+                    query: citrix.get(b"WFVirtualChannelQuery")?,
+                    read: citrix.get(b"WFVirtualChannelRead")?,
+                    write: citrix.get(b"WFVirtualChannelWrite")?,
+                    close: citrix.get(b"WFVirtualChannelClose")?,
                 })
             }
         } else if let Some(horizon) = libs.horizon() {
             unsafe {
                 Ok(Self {
-                    open: horizon.get("VDP_VirtualChannelOpen".as_bytes())?,
-                    query: horizon.get("VDP_VirtualChannelQuery".as_bytes())?,
-                    read: horizon.get("VDP_VirtualChannelRead".as_bytes())?,
-                    write: horizon.get("VDP_VirtualChannelWrite".as_bytes())?,
-                    close: horizon.get("VDP_VirtualChannelClose".as_bytes())?,
+                    open: horizon.get(b"VDP_VirtualChannelOpen")?,
+                    query: horizon.get(b"VDP_VirtualChannelQuery")?,
+                    read: horizon.get(b"VDP_VirtualChannelRead")?,
+                    write: horizon.get(b"VDP_VirtualChannelWrite")?,
+                    close: horizon.get(b"VDP_VirtualChannelClose")?,
                 })
             }
         } else {
@@ -87,7 +87,7 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
     }
 }
 
-pub(crate) struct Handle<'a> {
+pub struct Handle<'a> {
     name: String,
     wtshandle: ws::Win32::Foundation::HANDLE,
     read: libloading::Symbol<'a, vc::VirtualChannelRead>,
