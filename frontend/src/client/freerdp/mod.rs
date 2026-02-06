@@ -5,6 +5,7 @@ use std::{fmt, mem, thread, time};
 mod headers;
 
 pub enum Error {
+    NullPointer(String),
     NotFreerdp(String),
     Loading(libloading::Error),
     MissingFunction(&'static str),
@@ -15,6 +16,7 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
+            Self::NullPointer(msg) => write!(f, "null pointer: {msg}"),
             Self::NotFreerdp(msg) => write!(f, "client is not FreeRDP: {msg}"),
             Self::Loading(e) => write!(f, "loading error: {e}"),
             Self::MissingFunction(fun) => write!(f, "missing function {fun:?}"),
@@ -66,11 +68,12 @@ pub struct Client {
 }
 
 impl Client {
+    #[allow(clippy::too_many_lines)]
     fn load(size: headers::DWORD, entrypoints: headers::LPVOID) -> Result<Self, Error> {
         let rdp_context = {
             if size as usize == mem::size_of::<headers::CHANNEL_ENTRY_POINTS_FREERDP>() {
                 let pep: headers::PCHANNEL_ENTRY_POINTS_FREERDP = entrypoints.cast();
-                let ep = unsafe { *pep };
+                let ep = unsafe { pep.as_ref() }.ok_or_else(|| Error::NullPointer("ep".into()))?;
 
                 if ep.MagicNumber == headers::FREERDP_CHANNEL_MAGIC_NUMBER {
                     Ok(ep.rdpContext)
@@ -81,9 +84,20 @@ impl Client {
                     )))
                 }
             } else if size as usize == mem::size_of::<headers::IDRDYNVC_ENTRY_POINTS>() {
-                let pep: *mut headers::IDRDYNVC_ENTRY_POINTS = entrypoints.cast();
+                // try to detect misdetected linux horizon client
+                let first: *mut u32 = entrypoints.cast();
+                let second = unsafe { first.add(1) };
+                let first =
+                    unsafe { first.as_ref() }.ok_or_else(|| Error::NullPointer("ep".into()))?;
+                let second =
+                    unsafe { second.as_ref() }.ok_or_else(|| Error::NullPointer("ep".into()))?;
 
-                let ep = unsafe { *pep };
+                if *first == 0x28 && *second == 0x1 {
+                    return Err(Error::NotFreerdp("it looks like an Horizon client".into()));
+                }
+
+                let pep: *mut headers::IDRDYNVC_ENTRY_POINTS = entrypoints.cast();
+                let ep = unsafe { pep.as_ref() }.ok_or_else(|| Error::NullPointer("ep".into()))?;
 
                 // Defensive: IDRDYNVC_ENTRY_POINTS does not have a magic number. Validate that the
                 // first few function pointers look plausible before calling into them.
@@ -110,7 +124,7 @@ impl Client {
 
                 let get_rdp_context = ep
                     .GetRdpContext
-                    .ok_or(Error::NotFreerdp("GetRdpContext is null".into()))?;
+                    .ok_or(Error::NullPointer("GetRdpContext".into()))?;
 
                 Ok(unsafe { get_rdp_context(entrypoints.cast()) })
             } else {
@@ -118,8 +132,8 @@ impl Client {
             }
         }?;
 
-        let rdp_context = unsafe { rdp_context.as_ref() }
-            .ok_or(Error::NotFreerdp("rdp_context is null".into()))?;
+        let rdp_context =
+            unsafe { rdp_context.as_ref() }.ok_or(Error::NullPointer("rdp_context".into()))?;
 
         let rdp_input = rdp_context.input;
 
