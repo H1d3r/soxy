@@ -120,7 +120,7 @@ where
 
     common::info!(
         "virtual channel {} opened",
-        vchandle.display_name().unwrap_or("<unkno<n>")
+        vchandle.display_name().unwrap_or("<unknown>")
     );
     handle.write().unwrap().replace(vchandle);
 
