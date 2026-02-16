@@ -88,9 +88,13 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
         let read_overlapped = cell::RefCell::new(create_io_overlapped()?);
         let write_overlapped = cell::RefCell::new(create_io_overlapped()?);
 
-        let name = format!("SVC(low) {:?}", unsafe {
+        #[cfg(not(feature = "log"))]
+        let name = None;
+
+        #[cfg(feature = "log")]
+        let name = Some(format!("SVC(low) {:?}", unsafe {
             ffi::CStr::from_ptr(name.as_ptr())
-        });
+        }));
 
         Ok(Handle {
             name,
@@ -131,7 +135,7 @@ fn create_io_overlapped() -> Result<ws::Win32::System::IO::OVERLAPPED, vc::Error
 }
 
 pub struct Handle<'a> {
-    name: String,
+    name: Option<String>,
     channelhandle: ws::Win32::Foundation::HANDLE,
     close: libloading::Symbol<'a, vc::VirtualChannelClose>,
     filehandle: ws::Win32::Foundation::HANDLE,
@@ -147,8 +151,8 @@ unsafe impl Send for Handle<'_> {}
 unsafe impl Sync for Handle<'_> {}
 
 impl vc::Handle for Handle<'_> {
-    fn display_name(&self) -> &str {
-        self.name.as_str()
+    fn display_name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 
     fn read(&self, data: &mut [u8]) -> Result<ops::Range<usize>, vc::Error> {
@@ -188,8 +192,16 @@ impl vc::Handle for Handle<'_> {
                     Ok(0..read as usize)
                 }
             } else {
-                let err = io::Error::last_os_error();
-                Err(vc::Error::ReadFailed(format!("ret == 0x{ret:x?} {err}")))
+                #[cfg(not(feature = "log"))]
+                let e = { Err(vc::Error::ReadFailed(String::new())) };
+
+                #[cfg(feature = "log")]
+                let e = {
+                    let err = io::Error::last_os_error();
+                    Err(vc::Error::ReadFailed(format!("ret == 0x{ret:x?} {err}")))
+                };
+
+                e
             }
         } else {
             Ok(0..read as usize)

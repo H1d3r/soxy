@@ -35,12 +35,27 @@ impl BackendMode {
         let mut buf = [0u8; 1];
         stream.read_exact(&mut buf)?;
 
-        let res = match buf[0] {
-            ID_MODE_CONTROL => Self::Control,
-            ID_MODE_DATA => Self::Data,
-            v => unimplemented!("unsupported backend mode {v}"),
-        };
-        Ok(res)
+        match buf[0] {
+            ID_MODE_CONTROL => Ok(Self::Control),
+            ID_MODE_DATA => Ok(Self::Data),
+            _ => {
+                #[cfg(not(feature = "log"))]
+                {
+                    Err(api::Error::Io(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "",
+                    )))
+                }
+
+                #[cfg(feature = "log")]
+                {
+                    Err(api::Error::Io(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "invalid command",
+                    )))
+                }
+            }
+        }
     }
 }
 

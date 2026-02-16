@@ -231,9 +231,13 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
                     return Err(vc::Error::OpenChannelFailed(ctx_status_error_string(ret)));
                 }
 
-                let name = format!("SVC(High(Citrix)) {:?}", unsafe {
+                #[cfg(not(feature = "log"))]
+                let name = None;
+
+                #[cfg(feature = "log")]
+                let name = Some(format!("SVC(High(Citrix)) {:?}", unsafe {
                     ffi::CStr::from_ptr(name.as_ptr())
-                });
+                }));
 
                 Ok(Handle::Citrix {
                     name,
@@ -283,9 +287,13 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
                     common::warn!("virtual channel query failed (len = {len}, last error = {err})");
                 }
 
-                let name = format!("SVC(High(Standard)) {:?}", unsafe {
+                #[cfg(not(feature = "log"))]
+                let name = None;
+
+                #[cfg(feature = "log")]
+                let name = Some(format!("SVC(High(Standard)) {:?}", unsafe {
                     ffi::CStr::from_ptr(name.as_ptr())
-                });
+                }));
 
                 Ok(Handle::Standard {
                     name,
@@ -301,7 +309,7 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
 
 pub enum Handle<'a> {
     Citrix {
-        name: String,
+        name: Option<String>,
         handle: VcHandle,
         read: libloading::Symbol<'a, WsVirtualRead>,
         write: libloading::Symbol<'a, WsVirtualWrite>,
@@ -310,7 +318,7 @@ pub enum Handle<'a> {
         event_close_connection: libloading::Symbol<'a, WsCloseConnection>,
     },
     Standard {
-        name: String,
+        name: Option<String>,
         handle: ws::Win32::Foundation::HANDLE,
         read: libloading::Symbol<'a, vc::VirtualChannelRead>,
         write: libloading::Symbol<'a, vc::VirtualChannelWrite>,
@@ -326,9 +334,11 @@ unsafe impl Send for Handle<'_> {}
 unsafe impl Sync for Handle<'_> {}
 
 impl vc::Handle for Handle<'_> {
-    fn display_name(&self) -> &str {
+    fn display_name(&self) -> Option<&str> {
         match self {
-            Self::Citrix { name, .. } | Self::Standard { name, .. } => name.as_str(),
+            Self::Citrix { name, .. } | Self::Standard { name, .. } => {
+                name.as_ref().map(String::as_str)
+            }
         }
     }
 

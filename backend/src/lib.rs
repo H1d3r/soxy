@@ -118,7 +118,10 @@ where
 
     let vchandle = vc.open(channel_name)?;
 
-    common::info!("virtual channel {} opened", vchandle.display_name());
+    common::info!(
+        "virtual channel {} opened",
+        vchandle.display_name().unwrap_or("<unkno<n>")
+    );
     handle.write().unwrap().replace(vchandle);
 
     loop {
@@ -189,7 +192,6 @@ fn run<'a, V>(
 {
     thread::scope(|scope| {
         thread::Builder::new()
-            .name("backend to frontend".into())
             .spawn_scoped(scope, || {
                 if let Err(e) = backend_to_frontend(handle, backend_to_frontend_receive) {
                     common::error!("stopped: {e}");
@@ -205,7 +207,6 @@ fn run<'a, V>(
             .unwrap();
 
         thread::Builder::new()
-            .name("frontend to backend".into())
             .spawn_scoped(scope, || {
                 if let Err(e) =
                     frontend_to_backend(channel_name, vc, handle, frontend_to_backend_send)
@@ -260,7 +261,6 @@ fn main_res(channel_name: [ffi::c_char; 8]) -> Result<(), Error> {
     let backend_channel = channel::Channel::new(backend_to_frontend_send);
 
     thread::Builder::new()
-        .name("backend".into())
         .spawn(move || {
             #[cfg(target_os = "windows")]
             {

@@ -144,9 +144,11 @@ impl Libraries {
             #[cfg(not(target_os = "windows"))]
             let citrix = libloading::Library::new(libloading::library_filename("winsta")).ok();
 
-            common::trace!("trying to load Horizon library");
-            let vdp_rdpvcbridge =
-                libloading::Library::new(libloading::library_filename("vdp_rdpvcbridge")).ok();
+            #[cfg(all(feature = "svc", target_os = "windows"))]
+            let vdp_rdpvcbridge = {
+                common::trace!("trying to load Horizon library");
+                libloading::Library::new(libloading::library_filename("vdp_rdpvcbridge")).ok()
+            };
 
             common::trace!("trying to load XRDP library");
             let xrdpapi = libloading::Library::new(libloading::library_filename("xrdpapi")).ok();
@@ -157,18 +159,22 @@ impl Libraries {
                 libloading::Library::new(libloading::library_filename("wtsapi32")).ok()
             };
 
-            let found: Vec<&str> = vec![
-                citrix.as_ref().map(|_| "Citrix"),
-                vdp_rdpvcbridge.as_ref().map(|_| "Horizon"),
-                xrdpapi.as_ref().map(|_| "XRDP"),
-                #[cfg(target_os = "windows")]
-                wtsapi32.as_ref().map(|_| "WTS"),
-            ]
-            .into_iter()
-            .flatten()
-            .collect();
+            #[cfg(feature = "log")]
+            {
+                let found: Vec<&str> = vec![
+                    citrix.as_ref().map(|_| "Citrix"),
+                    #[cfg(all(feature = "svc", target_os = "windows"))]
+                    vdp_rdpvcbridge.as_ref().map(|_| "Horizon"),
+                    xrdpapi.as_ref().map(|_| "XRDP"),
+                    #[cfg(target_os = "windows")]
+                    wtsapi32.as_ref().map(|_| "WTS"),
+                ]
+                .into_iter()
+                .flatten()
+                .collect();
 
-            common::info!("found libraries: {}", found.join(", "));
+                common::info!("found libraries: {}", found.join(", "));
+            }
 
             Self {
                 #[cfg(all(feature = "svc", target_os = "windows"))]
@@ -258,7 +264,7 @@ impl<'a> VirtualChannel<'a> for GenericChannel<'a> {
 }
 
 pub trait Handle: Send + Sync {
-    fn display_name(&self) -> &str;
+    fn display_name(&self) -> Option<&str>;
     fn read(&self, data: &mut [u8]) -> Result<ops::Range<usize>, Error>;
     fn write(&self, data: &[u8]) -> Result<usize, Error>;
     fn close(self) -> Result<(), Error>;
@@ -272,7 +278,7 @@ pub enum GenericHandle<'a> {
 }
 
 impl Handle for GenericHandle<'_> {
-    fn display_name(&self) -> &str {
+    fn display_name(&self) -> Option<&str> {
         match self {
             #[cfg(feature = "dvc")]
             Self::Dynamic(dvch) => dvch.display_name(),

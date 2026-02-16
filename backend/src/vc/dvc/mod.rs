@@ -37,7 +37,7 @@ pub enum Handle<'a> {
 }
 
 impl vc::Handle for Handle<'_> {
-    fn display_name(&self) -> &str {
+    fn display_name(&self) -> Option<&str> {
         match self {
             Self::Xrdp(handle) => handle.display_name(),
             #[cfg(target_os = "windows")]

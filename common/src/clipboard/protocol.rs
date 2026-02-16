@@ -44,10 +44,20 @@ impl Command {
                 let text = util::deserialize_string(stream)?;
                 Ok(Self::WriteText(text))
             }
-            _ => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "invalid command",
-            )),
+            _ => {
+                #[cfg(not(feature = "log"))]
+                {
+                    Err(io::Error::new(io::ErrorKind::InvalidData, ""))
+                }
+
+                #[cfg(feature = "log")]
+                {
+                    Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "invalid command",
+                    ))
+                }
+            }
         }
     }
 }

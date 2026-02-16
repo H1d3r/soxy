@@ -73,9 +73,13 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
             common::warn!("virtual channel query failed (len = {len}, last error = {err})");
         }
 
-        let name = format!("SVC(high) {:?}", unsafe {
+        #[cfg(not(feature = "log"))]
+        let name = None;
+
+        #[cfg(feature = "log")]
+        let name = Some(format!("SVC(high) {:?}", unsafe {
             ffi::CStr::from_ptr(name.as_ptr())
-        });
+        }));
 
         Ok(Handle {
             name,
@@ -88,7 +92,7 @@ impl<'a> vc::VirtualChannel<'a> for Svc<'a> {
 }
 
 pub struct Handle<'a> {
-    name: String,
+    name: Option<String>,
     wtshandle: ws::Win32::Foundation::HANDLE,
     read: libloading::Symbol<'a, vc::VirtualChannelRead>,
     write: libloading::Symbol<'a, vc::VirtualChannelWrite>,
@@ -103,8 +107,8 @@ unsafe impl Send for Handle<'_> {}
 unsafe impl Sync for Handle<'_> {}
 
 impl vc::Handle for Handle<'_> {
-    fn display_name(&self) -> &str {
-        self.name.as_str()
+    fn display_name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 
     fn read(&self, data: &mut [u8]) -> Result<ops::Range<usize>, vc::Error> {

@@ -126,10 +126,6 @@ impl Channel {
                             ve.insert(from_rdp_send);
 
                             thread::Builder::new()
-                                .name(format!(
-                                    "{} {service} {client_id:x}",
-                                    service::Kind::Backend
-                                ))
                                 .spawn_scoped(scope, move || {
                                     stream.accept();
 
