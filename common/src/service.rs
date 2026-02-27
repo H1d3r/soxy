@@ -46,18 +46,28 @@ where
 }
 
 pub(crate) fn double_stream_copy(
-    _service_kind: Kind,
-    _service: &Service,
+    #[cfg(feature = "log")] service_kind: Kind,
+    #[cfg(not(feature = "log"))] _service_kind: Kind,
+    #[cfg(feature = "log")] service: &Service,
+    #[cfg(not(feature = "log"))] _service: &Service,
     rdp_stream: rdp::RdpStream<'_>,
     tcp_stream: TcpStream,
     flush: bool,
 ) -> Result<(), io::Error> {
+    #[cfg(feature = "log")]
+    let client_id = rdp_stream.client_id();
+
     let (mut rdp_stream_read, mut rdp_stream_write) = rdp_stream.split();
 
     let tcp_stream2 = tcp_stream.try_clone()?;
 
     thread::scope(move |scope| {
-        thread::Builder::new()
+        let thread = thread::Builder::new();
+        #[cfg(feature = "log")]
+        let thread = thread.name(format!(
+            "{service_kind} {service} {client_id:x} stream copy"
+        ));
+        thread
             .spawn_scoped(scope, move || {
                 let mut tcp_stream2 = io::BufWriter::new(tcp_stream2);
                 if let Err(e) = stream_copy(&mut rdp_stream_read, &mut tcp_stream2, flush) {

@@ -191,7 +191,7 @@ impl<'a> RdpStream<'a> {
         }
     }
 
-    #[cfg(feature = "frontend")]
+    #[cfg(any(feature = "frontend", feature = "log"))]
     pub(crate) fn client_id(&self) -> api::ClientId {
         self.handle.client_id
     }

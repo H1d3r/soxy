@@ -191,7 +191,10 @@ fn run<'a, V>(
     V: vc::VirtualChannel<'a>,
 {
     thread::scope(|scope| {
-        thread::Builder::new()
+        let thread = thread::Builder::new();
+        #[cfg(feature = "log")]
+        let thread = thread.name("backend to frontend".into());
+        thread
             .spawn_scoped(scope, || {
                 if let Err(e) = backend_to_frontend(handle, backend_to_frontend_receive) {
                     common::error!("stopped: {e}");
@@ -206,7 +209,10 @@ fn run<'a, V>(
             })
             .unwrap();
 
-        thread::Builder::new()
+        let thread = thread::Builder::new();
+        #[cfg(feature = "log")]
+        let thread = thread.name("frontend to backend".into());
+        thread
             .spawn_scoped(scope, || {
                 if let Err(e) =
                     frontend_to_backend(channel_name, vc, handle, frontend_to_backend_send)
@@ -260,8 +266,10 @@ fn main_res(channel_name: [ffi::c_char; 8]) -> Result<(), Error> {
 
     let backend_channel = channel::Channel::new(backend_to_frontend_send);
 
-    thread::Builder::new()
-        .spawn(move || {
+    let thread = thread::Builder::new();
+    #[cfg(feature = "log")]
+    let thread = thread.name("backend".into());
+    thread.spawn(move || {
             #[cfg(target_os = "windows")]
             {
                 let ret_exec = unsafe {
