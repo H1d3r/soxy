@@ -74,8 +74,7 @@ where
 
                 match handle.read().unwrap().as_ref() {
                     None => {
-                        common::info!("disconnected channel");
-                        return Ok(());
+                        common::warn!("disconnected channel, discarding chunk");
                     }
                     Some(handle) => {
                         let _ = handle.write(&data)?;
