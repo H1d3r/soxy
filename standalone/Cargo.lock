@@ -85,7 +85,7 @@ dependencies = [
 
 [[package]]
 name = "common"
-version = "4.8.0"
+version = "4.8.1"
 dependencies = [
  "copyrs",
  "crossbeam-channel",
@@ -173,7 +173,7 @@ checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
 name = "frontend"
-version = "4.8.0"
+version = "4.8.1"
 dependencies = [
  "bindgen",
  "common",
@@ -487,7 +487,7 @@ dependencies = [
 
 [[package]]
 name = "standalone"
-version = "4.8.0"
+version = "4.8.1"
 dependencies = [
  "common",
  "crossbeam-channel",
