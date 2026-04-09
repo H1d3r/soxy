@@ -142,7 +142,7 @@ dependencies = [
 
 [[package]]
 name = "soxyreg"
-version = "4.8.1"
+version = "4.8.2"
 dependencies = [
  "clap",
  "winreg",
