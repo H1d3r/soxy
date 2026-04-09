@@ -169,13 +169,15 @@ impl FrontendControl {
 
 struct ChannelControl {
     input: crossbeam_channel::Receiver<FromVc>,
-    input_data: sync::RwLock<Vec<u8>>,
     output: crossbeam_channel::Sender<api::Message>,
 }
 
 impl ChannelControl {
     #[allow(clippy::too_many_lines)]
     fn run(&self, control: &Control) -> Result<(), Error> {
+        let mut in_data =
+            Vec::with_capacity(FRONTEND_OUTPUT_CHANNEL_SIZE * common::api::PDU_MAX_SIZE);
+
         loop {
             match self.input.recv()? {
                 FromVc::Loaded(mut vc) => {
@@ -255,8 +257,6 @@ impl ChannelControl {
                 }
 
                 FromVc::Data(mut data) => {
-                    let mut in_data = self.input_data.write().unwrap();
-
                     common::trace!(
                         "FROMVC::DATA in_data == {} bytes ++ {} bytes",
                         in_data.len(),
@@ -278,15 +278,11 @@ impl ChannelControl {
                                         break 'inner;
                                     }
 
-                                    // at least one chunk, maybe more
-                                    // tmp contains the tail, i.e. what will
-                                    // not be deserialized
-                                    let mut tmp = data.split_off(len);
-                                    // tmp contains data to deserialize,
-                                    // remaining data are back in data
-                                    mem::swap(&mut tmp, &mut data);
+                                    let tail = data.split_off(len);
+                                    let head = data;
+                                    data = tail;
 
-                                    let chunk = api::Chunk::deserialize(tmp)?;
+                                    let chunk = api::Chunk::deserialize(head)?;
                                     self.output.send(api::Message::Chunk(chunk))?;
                                 }
                             }
@@ -298,14 +294,11 @@ impl ChannelControl {
                             match api::Chunk::can_deserialize_from(&in_data) {
                                 None => break 'inner,
                                 Some(len) => {
-                                    // tmp contains the tail, i.e. what will
-                                    // not be deserialized
-                                    let mut tmp = in_data.split_off(len);
-                                    // tmp contains data to deserialize,
-                                    // remaining data are back in in_data
-                                    mem::swap(&mut tmp, &mut in_data);
+                                    let tail = in_data.split_off(len);
+                                    let head = in_data;
+                                    in_data = tail;
 
-                                    let chunk = api::Chunk::deserialize(tmp)?;
+                                    let chunk = api::Chunk::deserialize(head)?;
                                     self.output.send(api::Message::Chunk(chunk))?;
                                 }
                             }
@@ -377,9 +370,6 @@ impl Control {
 
         let channel = ChannelControl {
             input: vc_in_recv,
-            input_data: sync::RwLock::new(Vec::with_capacity(
-                FRONTEND_OUTPUT_CHANNEL_SIZE * common::api::PDU_MAX_SIZE,
-            )),
             output: frontend_out_send,
         };
 

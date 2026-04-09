@@ -1,5 +1,5 @@
 use common::{api, channel, service};
-use std::{ffi, fmt, mem, sync, thread, time};
+use std::{ffi, fmt, sync, thread, time};
 #[cfg(any(feature = "dvc", feature = "svc"))]
 use vc::{Handle, VirtualChannel};
 use windows_sys as ws;
@@ -162,14 +162,11 @@ where
                         match api::Chunk::can_deserialize_from(&received_data) {
                             None => break 'inner,
                             Some(len) => {
-                                // tmp contains the tail, i.e. what will
-                                // not be deserialized
-                                let mut tmp = received_data.split_off(len);
-                                // tmp contains data to deserialize,
-                                // remaining data are back in received_data
-                                mem::swap(&mut tmp, &mut received_data);
+                                let tail = received_data.split_off(len);
+                                let head = received_data;
+                                received_data = tail;
 
-                                let chunk = api::Chunk::deserialize(tmp)?;
+                                let chunk = api::Chunk::deserialize(head)?;
                                 to_backend.send(api::Message::Chunk(chunk))?;
                             }
                         }
