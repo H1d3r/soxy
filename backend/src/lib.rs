@@ -335,7 +335,7 @@ pub fn main(channel_name: &str, level: common::Level) {
 #[allow(non_snake_case, unused_variables)]
 extern "system" fn Main() {
     loop {
-        thread::sleep(time::Duration::from_secs(60));
+        thread::sleep(time::Duration::from_mins(1));
     }
 }
 

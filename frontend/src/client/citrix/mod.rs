@@ -100,8 +100,7 @@ impl Client {
             mem::transmute::<headers::LPVOID, headers::GetICADisplayWindow>(get_ica_window)
         };
 
-        let get_ica_window =
-            get_ica_window.ok_or_else(|| Error::MissingFunction("get_ica_window"))?;
+        let get_ica_window = get_ica_window.ok_or(Error::MissingFunction("get_ica_window"))?;
 
         let window = unsafe { get_ica_window() };
 
