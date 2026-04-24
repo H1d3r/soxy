@@ -131,7 +131,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt update
-          sudo apt install gcc-multilib libc-dev clang
+          sudo apt install gcc-multilib libc-dev clang mingw-w64
 
       - name: Rustup update
         run: rustup update
