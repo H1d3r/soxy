@@ -23,6 +23,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt update
+          sudo apt full-upgrade
           sudo apt install gcc-multilib libc-dev clang
 
       - name: Rustup update
@@ -58,6 +59,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt update
+          sudo apt full-upgrade
           sudo apt install gcc-multilib libc-dev clang mingw-w64
 
       - name: Rustup update
@@ -93,6 +95,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt update
+          sudo apt full-upgrade
           sudo apt install gcc-multilib libc-dev clang
 
       - name: Rustup update
@@ -131,6 +134,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt update
+          sudo apt full-upgrade
           sudo apt install gcc-multilib libc-dev clang mingw-w64
 
       - name: Rustup update
