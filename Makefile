@@ -20,7 +20,7 @@ TOOLCHAIN_BACKEND_DEBUG ?= stable
 TOOLCHAIN_BACKEND_RELEASE ?= nightly
 TOOLCHAIN_STANDALONE_DEBUG ?= stable
 TOOLCHAIN_STANDALONE_RELEASE ?= stable
-TOOLCHAIN_WIN7_TAG ?= 1.97.1
+TOOLCHAIN_WIN7_TAG ?= 1.98.0
 TOOLCHAIN_WIN7_BACKEND ?= win7-$(TOOLCHAIN_WIN7_TAG)
 TOOLCHAIN_WIN7_RUST_DIR = win7-rustc
 TOOLCHAIN_SOXYREG_DEBUG ?= stable
@@ -48,7 +48,7 @@ setup:
 			echo ; echo "# Installing component $$target for $$toolchain" ; echo ; \
 			rustup target add --toolchain $$toolchain $$target || exit 1 ; \
 			if [[ ! "$$target" =~ "llvm" ]] ; then \
-				rustup component add --toolchain $${toolchain}-$$target rust-src || exit 1 ; \
+				rustup component add --toolchain $$toolchain rust-src || exit 1 ; \
 			fi ; \
 		done ; \
 	done
